@@ -157,3 +157,49 @@ Archivos generados:
 
 - `unclear_entries.md`: informe legible agrupado por escena, con speaker, linea, texto y raw line.
 - `review_index.json`: resumen con totales, speakers afectados y frases iniciales frecuentes.
+
+## apply_editorial_notes.py
+
+Aplica notas editoriales humanas sobre el screenplay generado y produce JSON
+anotado para fases posteriores. No modifica los `.md` originales, no reescribe
+texto y no usa LLMs.
+
+Uso con una sesion concreta:
+
+```powershell
+uv run python .\shared\scripts\apply_editorial_notes.py --series "La_Frecuencia_Bauman" --session "dialogos_2026-01-22 18-06-54"
+```
+
+Para regenerar:
+
+```powershell
+uv run python .\shared\scripts\apply_editorial_notes.py --series "La_Frecuencia_Bauman" --session "dialogos_2026-01-22 18-06-54" --force
+```
+
+Lee desde `<serie>/processing/screenplay/<session_stem>/` y busca notas en
+`<serie>/editorial_notes/<session_stem>/`. Si una escena no tiene notas, genera
+igualmente el JSON con listas vacias.
+
+Formato de notas soportado:
+
+```markdown
+# escena_001
+
+## Eliminar
+- Texto libre
+
+## Mantener
+- Texto libre
+
+## Planos sugeridos
+- Texto libre
+
+## Intención
+Texto libre
+```
+
+El output privado se escribe en
+`<serie>/processing/annotated_screenplay/<session_stem>/` e incluye un
+`annotated_index.json`. Cada escena conserva el markdown original, las notas
+parseadas, hashes SHA-256 del screenplay y de las notas, y rutas relativas para
+trazabilidad.

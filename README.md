@@ -71,6 +71,33 @@ El output se escribe por sesion en:
 <serie>/processing/scene_candidates/<session_stem>/
 ```
 
+## Editorial notes
+
+`editorial_notes/` es una capa humana opcional por serie y por sesion. Permite
+anotar cada escena antes de una futura seleccion editorial o reescritura
+asistida, sin modificar el screenplay original.
+
+Las notas reales de una serie se guardan en:
+
+```text
+<serie>/editorial_notes/<session_stem>/escena_001.notes.md
+```
+
+El script global aplica esas notas sobre el screenplay ya generado:
+
+```powershell
+uv run python .\shared\scripts\apply_editorial_notes.py --series "La_Frecuencia_Bauman" --session "dialogos_2026-01-22 18-06-54"
+```
+
+Genera JSON anotado en `<serie>/processing/annotated_screenplay/<session_stem>/`.
+El resultado mantiene hashes SHA-256, rutas de origen y trazabilidad hacia el
+screenplay y el archivo de notas. Esta fase no usa LLMs y prepara la entrada
+para un futuro `scene_editor` o LLM local.
+
+Las notas editoriales reales y los outputs anotados se consideran datos privados
+de trabajo y no se versionan por defecto. Hay un ejemplo versionable en
+`docs/examples/editorial_notes_example.md`.
+
 ## Entorno en PowerShell
 
 Normalmente no hace falta activar el entorno si usas `uv run`. Si quieres activarlo manualmente:
