@@ -127,3 +127,26 @@ Limitaciones actuales:
 - No mejora estilo ni corrige transcripcion.
 - Los nombres de personajes se resuelven con un mapeo simple de speakers.
 - La integracion futura con LLMs deberia trabajar sobre este markdown o sobre los JSON limpios, manteniendo trazabilidad.
+
+## build_review_report.py
+
+Genera un informe manual de entradas `unclear` a partir de `cleaned_transcripts`. No cambia clasificaciones ni modifica los JSON existentes; sirve para detectar patrones reales y mejorar reglas heuristicas.
+
+Uso automatico con la sesion limpia mas reciente:
+
+```powershell
+uv run python .\shared\scripts\build_review_report.py --series "La_Frecuencia_Bauman"
+```
+
+Tambien acepta una sesion concreta:
+
+```powershell
+uv run python .\shared\scripts\build_review_report.py --series "La_Frecuencia_Bauman" --session "dialogos_2026-01-22 18-06-54"
+```
+
+Lee desde `<serie>/processing/cleaned_transcripts/<session_stem>/` y escribe en `<serie>/processing/review_reports/<session_stem>/`.
+
+Archivos generados:
+
+- `unclear_entries.md`: informe legible agrupado por escena, con speaker, linea, texto y raw line.
+- `review_index.json`: resumen con totales, speakers afectados y frases iniciales frecuentes.
