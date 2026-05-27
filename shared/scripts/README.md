@@ -69,9 +69,15 @@ Tipos soportados:
 - `player_question`
 - `rules_meta`
 - `table_talk`
+- `post_session_feedback`
+- `mixed_entry`
 - `unclear`
 
 `dialogue` es extremadamente conservador: solo debe representar frases que parecen dichas por el personaje dentro de la ficcion. `player_intent` representa acciones declaradas por jugadores, y `player_question` representa preguntas al master o preguntas sobre posibilidades de accion.
+
+`post_session_feedback` separa comentarios de cierre, estrellas/deseos, analisis de personajes y charla sobre la partida o el capitulo. Tiene prioridad alta para que ese material no contamine el screenplay.
+
+`mixed_entry` marca entradas con varios modos narrativos mezclados, por ejemplo dialogo, accion, intencion y descripcion en una misma linea. No se divide automaticamente todavia: se conserva completa para una futura capa editorial o LLM.
 
 `SPEAKER_00` puede ser narrador/director o estar interpretando un PNJ. Cuando detecta atribuciones como `Mary dice...`, `Mary: ...` o `la mujer susurra: "..."`, el tipo pasa a `npc_dialogue` y se añade `npc_name` cuando puede extraerse sin inventarlo.
 
@@ -119,8 +125,9 @@ Tipos excluidos del guion principal:
 
 - `rules_meta`
 - `table_talk`
+- `post_session_feedback`
 
-`player_intent` y `player_question` no entran en el guion principal, pero se conservan en secciones `PLAYER_INTENT` y `PLAYER_QUESTION`. `unclear` se coloca al final de cada escena en `REVIEW_REQUIRED` para revision manual.
+`player_intent` y `player_question` no entran en el guion principal, pero se conservan en secciones `PLAYER_INTENT` y `PLAYER_QUESTION`. `mixed_entry` se conserva en `MIXED_ENTRIES` porque requiere revision editorial antes de separarse. `unclear` se coloca al final de cada escena en `REVIEW_REQUIRED` para revision manual.
 
 Limitaciones actuales:
 

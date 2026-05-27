@@ -40,6 +40,8 @@ ENTRY_TYPES = (
     "player_question",
     "rules_meta",
     "table_talk",
+    "post_session_feedback",
+    "mixed_entry",
     "unclear",
 )
 
@@ -80,6 +82,32 @@ RULES_PATTERNS = (
     re.compile(r"\bgastar afortunad[oa]\b", re.IGNORECASE),
     re.compile(r"\btengo ventaja\b", re.IGNORECASE),
     re.compile(r"\bpuedo gastar\b", re.IGNORECASE),
+    re.compile(r"\bexito parcial\b", re.IGNORECASE),
+    re.compile(r"\bsiete y uno\b", re.IGNORECASE),
+)
+
+POST_SESSION_FEEDBACK_MARKERS = (
+    "me ha gustado",
+    "me gusto",
+    "mi deseo",
+    "ver la partida",
+    "ver el capitulo",
+    "dure el capitulo",
+    "retencion",
+    "darkon",
+    "estrellas",
+    "deseos",
+    "post partida",
+    "postpartida",
+)
+
+POST_SESSION_CONTEXT_MARKERS = (
+    "como personaje",
+    "proxima sesion",
+    "entre sesiones",
+    "estrellas y deseos",
+    "hay que ver el capitulo",
+    "cuando vuelva a ver la partida",
 )
 
 PLAYER_QUESTION_MARKERS = (
@@ -123,6 +151,8 @@ TABLE_TALK_MARKERS = (
     "puedo repetir",
     "me he perdido",
     "que guapo",
+    "vaya te jodes",
+    "en fin",
     "jajaja",
     "jeje",
 )
@@ -137,10 +167,16 @@ TABLE_TALK_EXACT = (
     "claro",
     "si",
     "no",
+    "si si",
+    "no no",
+    "en fin",
+    "a ver",
 )
 
 PLAYER_INTENT_MARKERS = (
     "voy a",
+    "voy para alla",
+    "vamos a volver",
     "intento",
     "quiero",
     "me acerco",
@@ -152,6 +188,9 @@ PLAYER_INTENT_MARKERS = (
     "miro",
     "busco",
     "reviso",
+    "hago algunas fotos",
+    "le enseno",
+    "le ense",
     "le ayudo",
     "la ayudo",
     "lo ayudo",
@@ -160,6 +199,16 @@ PLAYER_INTENT_MARKERS = (
     "entro",
     "corro",
     "me escondo",
+    "lo intenta",
+    "intenta abrir",
+    "va a cachear",
+    "voy a cachear",
+    "me llevo",
+    "lo dejo",
+    "dejo el",
+    "dejo la",
+    "se lo comento",
+    "y corro",
     "taponar",
     "tranquilizarla",
     "hacerle una foto",
@@ -201,6 +250,21 @@ DESCRIPTION_MARKERS = (
     "aparece",
     "la camara",
     "plano",
+    "es una sala",
+    "sala muy grande",
+    "habitacion",
+    "persianas",
+    "la mesa",
+    "mesa de",
+    "mesa fija",
+    "ambiente",
+    "disposicion",
+    "ordenador",
+    "trastos",
+    "caja fuerte",
+    "lavadora",
+    "ropa sucia",
+    "bolsa de ropa",
 )
 
 NARRATIVE_MARKERS = (
@@ -218,6 +282,37 @@ NARRATIVE_MARKERS = (
     "luz",
     "puerta",
     "ventana",
+)
+
+MIXED_ENTRY_NARRATIVE_MARKERS = (
+    "dicho esto",
+    "se esfuma",
+    "apuntando",
+    "cuarto",
+    "habitacion",
+    "lavadora",
+    "caja fuerte",
+    "cachear",
+)
+
+MIXED_ENTRY_INTENT_MARKERS = (
+    "voy a",
+    "va a",
+    "intento",
+    "lo dejo",
+    "dejo el",
+    "cachear",
+    "me llevo",
+    "apunto",
+)
+
+MIXED_ENTRY_SPOKEN_MARKERS = (
+    "te sorprenderia",
+    "yo creo",
+    "me imagino",
+    "en plan",
+    "claro,",
+    "pues yo",
 )
 
 
@@ -370,6 +465,17 @@ def is_rules_meta(normalized: str) -> bool:
     )
 
 
+def is_post_session_feedback(normalized: str) -> bool:
+    """Return true for final-session feedback and post-game discussion."""
+
+    if contains_any(normalized, POST_SESSION_FEEDBACK_MARKERS):
+        return True
+    return contains_any(normalized, POST_SESSION_CONTEXT_MARKERS) and not contains_any(
+        normalized,
+        NARRATIVE_MARKERS,
+    )
+
+
 def is_player_question(normalized: str) -> bool:
     """Return true for questions about possible actions or GM prompts."""
 
@@ -415,6 +521,31 @@ def is_player_intent(normalized: str) -> bool:
     return contains_any(normalized, PLAYER_INTENT_MARKERS)
 
 
+def is_description(normalized: str) -> bool:
+    """Return true for visual, spatial, atmospheric, or character description."""
+
+    return contains_any(normalized, DESCRIPTION_MARKERS)
+
+
+def is_mixed_entry(normalized: str) -> bool:
+    """Return true for risky multi-mode entries that should not be split yet."""
+
+    words = normalized.split()
+    if len(words) < 18:
+        return False
+
+    has_narrative = contains_any(normalized, MIXED_ENTRY_NARRATIVE_MARKERS)
+    has_intent = contains_any(normalized, MIXED_ENTRY_INTENT_MARKERS)
+    has_spoken_or_commentary = contains_any(normalized, MIXED_ENTRY_SPOKEN_MARKERS)
+    has_connector = " y " in normalized or " pero " in normalized or " entonces " in normalized
+
+    if "dicho esto" in normalized and has_narrative and has_intent:
+        return True
+
+    signals = sum((has_narrative, has_intent, has_spoken_or_commentary))
+    return signals >= 2 and has_connector
+
+
 def is_dialogue(normalized: str) -> bool:
     """Return true only for conservative in-fiction spoken lines."""
 
@@ -437,6 +568,9 @@ def classify_line(line: CandidateLine) -> str:
     if not normalized.strip():
         return "unclear"
 
+    if is_post_session_feedback(normalized):
+        return "post_session_feedback"
+
     if is_rules_meta(normalized):
         return "rules_meta"
 
@@ -451,16 +585,19 @@ def classify_line(line: CandidateLine) -> str:
         if npc_name is not None:
             return "npc_dialogue"
 
+    if is_mixed_entry(normalized):
+        return "mixed_entry"
+
     if line.speaker == NARRATOR_SPEAKER:
         return "description"
 
-    if contains_any(normalized, DESCRIPTION_MARKERS):
+    if is_description(normalized):
         return "description"
 
     if line.speaker is not None and contains_any(normalized, NARRATIVE_MARKERS):
         return "description"
 
-    if line.speaker is not None and is_player_intent(normalized):
+    if is_player_intent(normalized):
         return "player_intent"
 
     if line.speaker is not None and is_dialogue(normalized):
