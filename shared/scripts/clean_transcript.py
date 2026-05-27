@@ -34,10 +34,36 @@ NARRATOR_SPEAKER = "SPEAKER_00"
 ENTRY_TYPES = (
     "description",
     "dialogue",
+    "npc_dialogue",
     "meta_game",
     "dice_roll",
     "table_talk",
     "unclear",
+)
+
+NPC_NAME_PATTERN = r"(?:[A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÜÑáéíóúüñ'-]*|el|la|los|las)(?:\s+(?:[A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÜÑáéíóúüñ'-]*|hombre|mujer|niño|niña|camarera|camarero|doctor|doctora|agente|policía|policia|anciano|anciana|joven|guardia))*"
+NPC_VERBS = (
+    "dice",
+    "responde",
+    "contesta",
+    "susurra",
+    "grita",
+    "murmura",
+    "exclama",
+    "añade",
+    "anade",
+    "replica",
+)
+NPC_STYLE_DIRECT_PATTERN = re.compile(
+    rf"^(?P<npc>{NPC_NAME_PATTERN})\s*:\s*(?P<dialogue>.+)$"
+)
+NPC_ATTRIBUTION_PATTERN = re.compile(
+    rf"^(?P<npc>{NPC_NAME_PATTERN})\s+(?:os\s+mira\s+y\s+)?"
+    rf"(?P<verb>{'|'.join(NPC_VERBS)})\s*:?\s*(?P<dialogue>.+)$",
+)
+NPC_QUOTED_PATTERN = re.compile(
+    rf"^(?P<npc>{NPC_NAME_PATTERN})\s+(?:os\s+mira\s+y\s+)?"
+    rf"(?P<verb>{'|'.join(NPC_VERBS)})\s*:?\s*[\"“](?P<dialogue>.+?)[\"”]\s*$",
 )
 
 DICE_ROLL_PATTERNS = (
@@ -146,6 +172,7 @@ class CleanEntry:
     type: str
     text: str
     raw_line: str
+    npc_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -178,6 +205,57 @@ def contains_any(normalized_text: str, markers: tuple[str, ...]) -> bool:
     """Return true when any configured marker appears in normalized text."""
 
     return any(marker in normalized_text for marker in markers)
+
+
+def strip_surrounding_quotes(text: str) -> str:
+    """Remove one pair of surrounding dialogue quotes when present."""
+
+    stripped = text.strip()
+    if len(stripped) >= 2 and stripped[0] in "\"“" and stripped[-1] in "\"”":
+        return stripped[1:-1].strip()
+    return stripped
+
+
+def normalize_npc_name(raw_name: str) -> str:
+    """Normalize spacing in a detected NPC name without inventing content."""
+
+    return " ".join(raw_name.strip().split())
+
+
+def is_plausible_npc_name(npc_name: str) -> bool:
+    """Reject broad sentence fragments that accidentally match as names."""
+
+    normalized = normalize_text(npc_name)
+    words = normalized.split()
+    if not words or len(words) > 4:
+        return False
+    if words[0] in {"os", "yo", "tu", "vosotros", "vosotras", "nosotros", "nosotras"}:
+        return False
+    if words[0] in {"el", "la", "los", "las"}:
+        return len(words) >= 2
+    return npc_name[0].isupper()
+
+
+def is_plausible_dialogue(dialogue: str) -> bool:
+    """Return true when extracted NPC dialogue contains real text."""
+
+    return any(char.isalnum() for char in dialogue)
+
+
+def detect_npc_dialogue(text: str) -> tuple[str | None, str | None]:
+    """Detect simple NPC dialogue attribution and optionally extract dialogue."""
+
+    for pattern in (NPC_QUOTED_PATTERN, NPC_ATTRIBUTION_PATTERN, NPC_STYLE_DIRECT_PATTERN):
+        match = pattern.match(text.strip())
+        if match:
+            npc_name = normalize_npc_name(match.group("npc"))
+            if not is_plausible_npc_name(npc_name):
+                continue
+            dialogue = strip_surrounding_quotes(match.group("dialogue"))
+            if not is_plausible_dialogue(dialogue):
+                continue
+            return npc_name, dialogue
+    return None, None
 
 
 def parse_scene_file(path: Path) -> list[CandidateLine]:
@@ -232,6 +310,11 @@ def classify_line(line: CandidateLine) -> str:
         return "table_talk"
 
     if line.speaker == NARRATOR_SPEAKER:
+        npc_name, _dialogue = detect_npc_dialogue(line.text)
+        if npc_name is not None:
+            return "npc_dialogue"
+
+    if line.speaker == NARRATOR_SPEAKER:
         return "description"
 
     if contains_any(normalized, DESCRIPTION_MARKERS):
@@ -246,18 +329,34 @@ def classify_line(line: CandidateLine) -> str:
     return "unclear"
 
 
+def build_clean_entry(entry_id: int, line: CandidateLine) -> CleanEntry:
+    """Build one classified entry while preserving original traceability."""
+
+    entry_type = classify_line(line)
+    npc_name: str | None = None
+    text = line.text
+    if entry_type == "npc_dialogue":
+        detected_name, detected_dialogue = detect_npc_dialogue(line.text)
+        npc_name = detected_name
+        if detected_dialogue:
+            text = detected_dialogue
+
+    return CleanEntry(
+        entry_id=entry_id,
+        line_number=line.line_number,
+        speaker=line.speaker,
+        type=entry_type,
+        text=text,
+        raw_line=line.raw,
+        npc_name=npc_name,
+    )
+
+
 def clean_scene(scene_path: Path, session_id: str) -> CleanScene:
     """Parse and classify one scene candidate file."""
 
     entries = [
-        CleanEntry(
-            entry_id=index,
-            line_number=line.line_number,
-            speaker=line.speaker,
-            type=classify_line(line),
-            text=line.text,
-            raw_line=line.raw,
-        )
+        build_clean_entry(index, line)
         for index, line in enumerate(parse_scene_file(scene_path), start=1)
     ]
     return CleanScene(scene_id=scene_path.stem, session_id=session_id, entries=entries)
@@ -431,6 +530,7 @@ def entry_to_payload(entry: CleanEntry) -> dict[str, object]:
         "line_number": entry.line_number,
         "speaker": entry.speaker,
         "type": entry.type,
+        "npc_name": entry.npc_name,
         "text": entry.text,
         "raw_line": entry.raw_line,
     }

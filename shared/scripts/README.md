@@ -64,10 +64,13 @@ Tipos soportados:
 
 - `description`
 - `dialogue`
+- `npc_dialogue`
 - `meta_game`
 - `dice_roll`
 - `table_talk`
 - `unclear`
+
+`SPEAKER_00` puede ser narrador/director o estar interpretando un PNJ. Cuando detecta atribuciones como `Mary dice...`, `Mary: ...` o `la mujer susurra: "..."`, el tipo pasa a `npc_dialogue` y se añade `npc_name` cuando puede extraerse sin inventarlo.
 
 El comando es idempotente. Registra el SHA-256 de la carpeta de escenas candidatas en `<serie>/processing/metadata/cleaned_sessions.json`; si el contenido ya fue procesado, muestra `Cleaned session already processed. Use --force to regenerate.` y termina sin reescribir.
 
@@ -75,5 +78,6 @@ Limitaciones actuales:
 
 - La clasificacion es heuristica y conservadora.
 - No resuelve identidades reales de personajes.
+- La deteccion de `npc_dialogue` depende de atribuciones explicitas y puede no capturar dialogo indirecto o voces sin nombre.
 - No elimina ni normaliza bromas, tiradas, interrupciones ni dudas de reglas.
 - Futuras mejoras: configuracion externa por serie, tests con fixtures y reglas mas finas para dialogo en personaje.
