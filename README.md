@@ -152,6 +152,52 @@ La UI no modifica el screenplay base. Solo escribe notas privadas en
 `editorial_notes/` y reutiliza la fase de anotacion existente para generar los
 JSON anotados.
 
+## Scene editor LLM
+
+El scene editor es una fase experimental para convertir `annotated_screenplay`
+en borradores cinematograficos iterativos usando un LLM local con Ollama. Mantiene
+separacion entre fuentes y generados: no modifica `screenplay`, `editorial_notes`
+ni `annotated_screenplay`.
+
+Arranca Ollama y descarga el modelo deseado, por ejemplo:
+
+```powershell
+ollama serve
+ollama pull qwen3:30b
+```
+
+La UI local se abre con:
+
+```powershell
+uv run streamlit run .\shared\ui\scene_editor_app.py
+```
+
+Flujo completo:
+
+1. Generar `processing/screenplay/<session>/`.
+2. Inicializar y editar `editorial_notes/<session>/`.
+3. Aplicar notas para crear `processing/annotated_screenplay/<session>/`.
+4. Abrir el scene editor.
+5. Generar un primer draft con Ollama.
+6. Refinar con instrucciones adicionales sin perder el draft anterior.
+7. Guardar una version aceptada como final.
+
+Los drafts se guardan en:
+
+```text
+<serie>/processing/final_screenplay/<session>/drafts/<scene_id>/
+```
+
+La version final aceptada se guarda en:
+
+```text
+<serie>/processing/final_screenplay/<session>/escena_001.final.md
+<serie>/processing/final_screenplay/<session>/escena_001.final.json
+```
+
+Cada draft conserva prompt, respuesta, modelo, temperatura, feedback, hashes de
+origen y timestamp. Estos outputs son privados y no se versionan.
+
 ## Entorno en PowerShell
 
 Normalmente no hace falta activar el entorno si usas `uv run`. Si quieres activarlo manualmente:

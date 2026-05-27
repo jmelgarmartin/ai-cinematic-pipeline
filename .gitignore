@@ -15,6 +15,7 @@ La_Frecuencia_Bauman/processing/scene_candidates/
 La_Frecuencia_Bauman/processing/cleaned_transcripts/
 La_Frecuencia_Bauman/processing/screenplay/
 La_Frecuencia_Bauman/processing/annotated_screenplay/
+La_Frecuencia_Bauman/processing/final_screenplay/
 La_Frecuencia_Bauman/processing/storyboard/
 La_Frecuencia_Bauman/processing/prompts/
 La_Frecuencia_Bauman/processing/metadata/
@@ -28,11 +29,14 @@ La_Frecuencia_Bauman/editorial_notes/
 **/processing/cleaned_transcripts/
 **/processing/screenplay/
 **/processing/annotated_screenplay/
+**/processing/final_screenplay/
 **/processing/storyboard/
 **/processing/prompts/
 **/processing/metadata/
 **/processing/review_reports/
 **/editorial_notes/
+**/drafts/
+conversation_history.json
 **/video/
 **/audio/
 **/assets/characters/

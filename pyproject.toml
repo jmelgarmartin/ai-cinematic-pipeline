@@ -10,6 +10,7 @@ dependencies = [
     "pydantic",
     "python-dotenv",
     "pyyaml",
+    "requests>=2.34.2",
     "rich",
     "sentence-transformers",
     "spacy",
