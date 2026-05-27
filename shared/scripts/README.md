@@ -203,3 +203,42 @@ El output privado se escribe en
 `annotated_index.json`. Cada escena conserva el markdown original, las notas
 parseadas, hashes SHA-256 del screenplay y de las notas, y rutas relativas para
 trazabilidad.
+
+## init_editorial_notes.py
+
+Genera plantillas vacias de notas editoriales para cada escena disponible en una
+sesion de screenplay. Es una ayuda para iniciar la revision humana sin tocar el
+screenplay original.
+
+Inicializar notas:
+
+```powershell
+uv run python .\shared\scripts\init_editorial_notes.py --series "La_Frecuencia_Bauman" --session "dialogos_2026-01-22 18-06-54"
+```
+
+El comando lee `<serie>/processing/screenplay/<session_stem>/`, ignora
+`screenplay_index.json` y crea archivos en
+`<serie>/editorial_notes/<session_stem>/`.
+
+Formato generado:
+
+```markdown
+# escena_001
+
+## Eliminar
+
+## Mantener
+
+## Planos sugeridos
+
+## Intención
+```
+
+Es idempotente: omite notas existentes y solo las sobrescribe con `--force`.
+El resumen final indica escenas creadas, omitidas y sobrescritas.
+
+Despues de editar las notas, se aplican con:
+
+```powershell
+uv run python .\shared\scripts\apply_editorial_notes.py --series "La_Frecuencia_Bauman" --session "dialogos_2026-01-22 18-06-54"
+```

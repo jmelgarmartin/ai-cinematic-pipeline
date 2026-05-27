@@ -98,6 +98,35 @@ Las notas editoriales reales y los outputs anotados se consideran datos privados
 de trabajo y no se versionan por defecto. Hay un ejemplo versionable en
 `docs/examples/editorial_notes_example.md`.
 
+## Editorial notes bootstrap
+
+Para empezar una ronda editorial, genera plantillas vacias para todas las escenas
+disponibles en el screenplay de una sesion:
+
+```powershell
+uv run python .\shared\scripts\init_editorial_notes.py --series "La_Frecuencia_Bauman" --session "dialogos_2026-01-22 18-06-54"
+```
+
+El comando crea un archivo `escena_XXX.notes.md` por cada escena existente. Es
+idempotente: si una nota ya existe, no la sobrescribe salvo que se use `--force`.
+
+Flujo esperado:
+
+```text
+processing/screenplay/<session>/
+  -> editorial_notes/<session>/
+  -> processing/annotated_screenplay/<session>/
+```
+
+`screenplay` es el guion estructurado generado por la pipeline.
+`editorial_notes` es la capa humana privada donde se decide que eliminar,
+mantener, que planos sugerir y cual es la intencion de la escena.
+`annotated_screenplay` combina ambos sin alterar los originales y prepara una
+entrada trazable para futuras herramientas editoriales o LLMs locales.
+
+Ejemplo completo de nota editada:
+`docs/examples/generated_editorial_note_example.md`.
+
 ## Entorno en PowerShell
 
 Normalmente no hace falta activar el entorno si usas `uv run`. Si quieres activarlo manualmente:
