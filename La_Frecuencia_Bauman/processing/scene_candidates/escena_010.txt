@@ -1,0 +1,8 @@
+SPEAKER_00: Tengo tu número. Escríbeme tú si encuentras algo.
+
+SPEAKER_01: Y Olivia le sonríe y en cuanto se gira hacia sus compañeras pone una cara de asco.
+
+SPEAKER_00: Doctora Hoss. cargan a Mary, introducen a Mary en la ambulancia. No voy a decir cargar por lo de ayer. Suben a Mary a la ambulancia. Los médicos te dan las gracias por tu pronta asistencia. Dicen que la van a llevar al hospital de San Martín. Es el hospital cercano. Y la ambulancia marcha. La cosa se relaja. Podéis ver cómo en una esquina la periodista está empezando a grabar un reportaje. Ya ha llegado el cámara y ya está delante de ellos. Ya tenéis el permiso de la policía para abandonar el local, abandonar la zona. Pero, por supuesto, intentando iros del país, etcétera, etcétera, por si acaso tienen más preguntas. Así que decidme, chicos. En esta cortinilla estrella, ¿dónde nos encontramos los tres a salvo de todo este tumulto?
+
+SPEAKER_01: Hombre, seguramente hayamos ido a la agencia Parker a revisar el bolso porque en lo que operan a la señora tampoco tenemos nada que hacer en el hospital y una descarga de una UCI no te la sacan en un rato.
+
