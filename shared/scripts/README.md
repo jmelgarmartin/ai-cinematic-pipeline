@@ -81,3 +81,46 @@ Limitaciones actuales:
 - La deteccion de `npc_dialogue` depende de atribuciones explicitas y puede no capturar dialogo indirecto o voces sin nombre.
 - No elimina ni normaliza bromas, tiradas, interrupciones ni dudas de reglas.
 - Futuras mejoras: configuracion externa por serie, tests con fixtures y reglas mas finas para dialogo en personaje.
+
+## build_screenplay.py
+
+Renderiza `cleaned_transcripts` como markdown de guion cinematografico legible. No reescribe, no resume, no embellece y no usa LLMs: solo ordena y formatea contenido ya clasificado.
+
+Uso automatico con la sesion limpia mas reciente:
+
+```powershell
+uv run python .\shared\scripts\build_screenplay.py --series "La_Frecuencia_Bauman"
+```
+
+Para reprocesar:
+
+```powershell
+uv run python .\shared\scripts\build_screenplay.py --series "La_Frecuencia_Bauman" --force
+```
+
+Tambien acepta una sesion concreta:
+
+```powershell
+uv run python .\shared\scripts\build_screenplay.py --series "La_Frecuencia_Bauman" --session "dialogos_2026-01-22 18-06-54"
+```
+
+Lee desde `<serie>/processing/cleaned_transcripts/<session_stem>/` y escribe `.md` en `<serie>/processing/screenplay/<session_stem>/`.
+
+Tipos incluidos:
+
+- `description` pasa a la seccion `DESCRIPTION`.
+- `dialogue` y `npc_dialogue` pasan a la seccion `DIALOGUE`.
+
+Tipos excluidos del guion principal:
+
+- `meta_game`
+- `dice_roll`
+- `table_talk`
+
+`unclear` no entra en el guion principal y se coloca al final de cada escena en `REVIEW_REQUIRED` para revision manual.
+
+Limitaciones actuales:
+
+- No mejora estilo ni corrige transcripcion.
+- Los nombres de personajes se resuelven con un mapeo simple de speakers.
+- La integracion futura con LLMs deberia trabajar sobre este markdown o sobre los JSON limpios, manteniendo trazabilidad.
