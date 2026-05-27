@@ -96,3 +96,14 @@ powershell -ExecutionPolicy Bypass
 ## Fuera de este entorno
 
 Por ahora ComfyUI, modelos pesados, modelos de imagen/video/audio, CUDA y herramientas grandes como pipelines de render o transcripcion avanzada se gestionaran fuera de este entorno Python base.
+
+## Next Steps
+
+Las siguientes fases previstas del pipeline son:
+
+- Seleccion editorial de escenas a partir de candidatos y guiones estructurados.
+- Mejora cinematografica del material seleccionado.
+- Generacion de storyboard y prompts visuales.
+- Integracion posterior con generacion de imagen.
+- Pipeline de animacion y montaje audiovisual.
+- Integracion futura con LLMs manteniendo trazabilidad y reproducibilidad.
