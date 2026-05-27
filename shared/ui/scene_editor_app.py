@@ -16,13 +16,14 @@ from shared.scene_editor.config import (  # noqa: E402
     DEFAULT_MAX_TOKENS,
     DEFAULT_MODEL,
     DEFAULT_TEMPERATURE,
+    DEFAULT_TIMEOUT_SECONDS,
 )
 from shared.scene_editor.generation_manager import (  # noqa: E402
     generate_initial_draft,
     refine_draft,
 )
 from shared.scene_editor.models import GenerationSettings  # noqa: E402
-from shared.scene_editor.ollama_client import OllamaError  # noqa: E402
+from shared.scene_editor.ollama_client import OllamaClient, OllamaError  # noqa: E402
 from shared.scene_editor.storage import (  # noqa: E402
     final_paths,
     latest_draft,
@@ -115,18 +116,20 @@ def main() -> None:
     with settings_col_b:
         temperature = st.slider("Temperatura", 0.0, 1.2, DEFAULT_TEMPERATURE, 0.05)
     with settings_col_c:
-        max_tokens = st.number_input(
-            "Max tokens",
-            min_value=256,
-            max_value=16000,
-            value=DEFAULT_MAX_TOKENS,
-            step=256,
+        st.metric("Max tokens", DEFAULT_MAX_TOKENS)
+        timeout_seconds = st.number_input(
+            "Timeout (s)",
+            min_value=30,
+            max_value=3600,
+            value=DEFAULT_TIMEOUT_SECONDS,
+            step=30,
         )
     settings = GenerationSettings(
         model=model.strip() or DEFAULT_MODEL,
         temperature=float(temperature),
-        max_tokens=int(max_tokens),
+        max_tokens=DEFAULT_MAX_TOKENS,
     )
+    ollama_client = OllamaClient(timeout_seconds=int(timeout_seconds))
 
     base_col, notes_col, draft_col = st.columns(3)
     with base_col:
@@ -148,40 +151,50 @@ def main() -> None:
             label_visibility="collapsed",
         )
     with draft_col:
-        st.subheader("Draft generado")
+        st.subheader("Draft cinematográfico")
         selected_draft = select_active_draft(root, selected_session, selected_scene)
         draft_text = selected_draft.response if selected_draft else ""
-        st.text_area(
-            "Draft generado",
-            draft_text or "_Aun no hay draft para esta escena._",
-            height=520,
-            disabled=True,
-            label_visibility="collapsed",
-        )
         if selected_draft:
-            st.caption(f"Draft activo: {selected_draft.draft_number:03d}")
+            st.caption(
+                f"Draft activo: {selected_draft.draft_number:03d} | "
+                f"Prompt: {selected_draft.prompt_version}"
+            )
+            st.markdown(draft_text)
+            with st.expander("Texto raw del draft", expanded=False):
+                st.text_area(
+                    "Texto raw del draft",
+                    draft_text,
+                    height=520,
+                    disabled=True,
+                    label_visibility="collapsed",
+                )
+            if selected_draft.cleaned_response:
+                st.info(f"Salida limpiada: {selected_draft.cleanup_reason}")
+        else:
+            st.info("Aun no hay draft para esta escena.")
 
     feedback = st.text_area(
-        "Chat / instrucciones adicionales",
+        "Ajuste del director para el siguiente draft",
         height=120,
         placeholder="Ej: hazla mas visual, reduce exposicion, conserva la radio...",
     )
 
-    prev_col, generate_col, refine_col, regen_col, final_col, next_col = st.columns(
-        [1, 1.25, 1, 1, 1.15, 1]
+    prev_col, generate_col, refine_col, final_col, next_col = st.columns(
+        [1, 1.35, 1.6, 1.2, 1]
     )
     with prev_col:
         if st.button("Anterior", disabled=selected_index == 0, use_container_width=True):
             set_scene_index(selected_index - 1)
             st.rerun()
     with generate_col:
-        if st.button("Generar borrador", type="primary", use_container_width=True):
+        if st.button("Generar primer draft", type="primary", use_container_width=True):
             with st.spinner("Generando borrador con Ollama..."):
                 try:
                     record = generate_initial_draft(
                         series_root=root,
                         source=source,
                         settings=settings,
+                        client=ollama_client,
                     )
                     st.success(f"Draft {record.draft_number:03d} generado.")
                     st.rerun()
@@ -190,11 +203,15 @@ def main() -> None:
                 except Exception as exc:  # pragma: no cover - UI guardrail
                     st.error(f"Error inesperado generando draft: {exc}")
     with refine_col:
-        if st.button("Refinar", disabled=selected_draft is None, use_container_width=True):
+        if st.button(
+            "Generar nuevo draft con ajuste",
+            disabled=selected_draft is None,
+            use_container_width=True,
+        ):
             if not feedback.strip():
-                st.warning("Escribe instrucciones de refinamiento antes de continuar.")
+                st.warning("Escribe un ajuste del director antes de continuar.")
             else:
-                with st.spinner("Refinando draft con Ollama..."):
+                with st.spinner("Generando nueva version con Ollama..."):
                     try:
                         record = refine_draft(
                             series_root=root,
@@ -202,6 +219,7 @@ def main() -> None:
                             previous_draft=selected_draft.response if selected_draft else "",
                             user_feedback=feedback,
                             settings=settings,
+                            client=ollama_client,
                         )
                         st.success(f"Draft {record.draft_number:03d} refinado.")
                         st.rerun()
@@ -209,21 +227,6 @@ def main() -> None:
                         st.error(str(exc))
                     except Exception as exc:  # pragma: no cover - UI guardrail
                         st.error(f"Error inesperado refinando draft: {exc}")
-    with regen_col:
-        if st.button("Regenerar", use_container_width=True):
-            with st.spinner("Regenerando desde fuentes originales..."):
-                try:
-                    record = generate_initial_draft(
-                        series_root=root,
-                        source=source,
-                        settings=settings,
-                    )
-                    st.success(f"Draft {record.draft_number:03d} regenerado.")
-                    st.rerun()
-                except OllamaError as exc:
-                    st.error(str(exc))
-                except Exception as exc:  # pragma: no cover - UI guardrail
-                    st.error(f"Error inesperado regenerando draft: {exc}")
     with final_col:
         if st.button("Guardar final", disabled=selected_draft is None, use_container_width=True):
             if selected_draft:

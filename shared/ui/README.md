@@ -43,7 +43,7 @@ Arranca Ollama y descarga el modelo:
 
 ```powershell
 ollama serve
-ollama pull qwen3:30b
+ollama pull gemma4:latest
 ```
 
 Arranque de la UI:
@@ -72,9 +72,15 @@ Privacidad:
 - No se versionan prompts ni respuestas reales.
 - El modelo es configurable desde la UI; el valor por defecto vive en
   `shared/scene_editor/config.py`.
+- El output esperado es una escena cinematografica final, no analisis ni
+  razonamiento visible.
+- Se recomiendan modelos instruct o no-reasoning. Si se usa un modelo reasoning
+  como Qwen, puede requerir limpieza adicional o configuracion especifica.
 
 Limitaciones actuales:
 
 - Requiere Ollama levantado localmente.
 - No hace evaluacion automatica de calidad.
 - No comprueba continuidad entre escenas.
+- La limpieza defensiva recorta preambulos tipo chatbot cuando detecta un
+  encabezado valido de escena.

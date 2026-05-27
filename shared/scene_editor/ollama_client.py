@@ -7,7 +7,7 @@ from typing import Any
 
 import requests
 
-from .config import DEFAULT_OLLAMA_URL, DEFAULT_TIMEOUT_SECONDS
+from .config import DEFAULT_NUM_CTX, DEFAULT_OLLAMA_URL, DEFAULT_TIMEOUT_SECONDS
 
 
 class OllamaError(RuntimeError):
@@ -35,9 +35,11 @@ class OllamaClient:
             "model": model,
             "prompt": prompt,
             "stream": False,
+            "think": False,
             "options": {
                 "temperature": temperature,
                 "num_predict": max_tokens,
+                "num_ctx": DEFAULT_NUM_CTX,
             },
         }
         try:
@@ -65,4 +67,10 @@ class OllamaClient:
         generated = data.get("response")
         if not isinstance(generated, str):
             raise OllamaError("Respuesta de Ollama sin campo `response` valido.")
-        return generated.strip()
+        cleaned = generated.strip()
+        if not cleaned:
+            raise OllamaError(
+                "Ollama devolvio una respuesta vacia. Prueba a subir `Max tokens`, "
+                "usar un modelo no-razonador, o cambiar de modelo en la UI."
+            )
+        return cleaned

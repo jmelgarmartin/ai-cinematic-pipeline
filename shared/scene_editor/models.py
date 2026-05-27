@@ -37,6 +37,9 @@ class DraftRecord:
     user_feedback: str
     prompt: str
     response: str
+    cleaned_response: bool
+    cleanup_reason: str
+    prompt_version: str
 
 
 @dataclass(frozen=True)

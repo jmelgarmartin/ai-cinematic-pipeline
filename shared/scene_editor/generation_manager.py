@@ -4,12 +4,56 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+import re
 
 from .config import DEFAULT_MAX_TOKENS, DEFAULT_MODEL, DEFAULT_TEMPERATURE
 from .models import DraftRecord, GenerationSettings, SceneSource
 from .ollama_client import OllamaClient
-from .prompt_builder import build_initial_prompt, build_refinement_prompt
+from .prompt_builder import PROMPT_VERSION, build_initial_prompt, build_refinement_prompt
 from .storage import next_draft_number, save_draft
+
+
+VALID_SCENE_START_PATTERN = re.compile(
+    r"(?im)^\s*(?:#\s*)?(?:ESCENA\b|INT\.|EXT\.|INT/EXT\.|INT\.?/EXT\.?|##\s+INT\.|##\s+EXT\.)"
+)
+CHATBOT_PREFIX_PATTERN = re.compile(
+    r"(?is)^\s*(?:okay[,\s]|let's\b|first[,\s]|i need to\b|the user\b|we need to\b|here is\b|claro[,\s]|voy a\b|a continuacion\b)"
+)
+META_LINE_PATTERNS = (
+    re.compile(r"(?is)^\s*okay[,\s].*?(?=\n\s*(?:#\s*)?(?:ESCENA\b|INT\.|EXT\.|##\s+INT\.|##\s+EXT\.))"),
+    re.compile(r"(?is)^\s*let's.*?(?=\n\s*(?:#\s*)?(?:ESCENA\b|INT\.|EXT\.|##\s+INT\.|##\s+EXT\.))"),
+)
+
+
+def clean_model_output(text: str) -> tuple[str, bool, str]:
+    """Remove visible reasoning/chatbot preambles while preserving valid scenes."""
+
+    normalized = text.strip()
+    if not normalized:
+        return normalized, False, ""
+
+    start_match = VALID_SCENE_START_PATTERN.search(normalized)
+    if start_match and start_match.start() > 0:
+        return (
+            normalized[start_match.start() :].strip(),
+            True,
+            "trimmed text before valid scene heading",
+        )
+
+    for pattern in META_LINE_PATTERNS:
+        cleaned = pattern.sub("", normalized).strip()
+        if cleaned != normalized:
+            return cleaned, True, "removed visible reasoning preamble"
+
+    if CHATBOT_PREFIX_PATTERN.match(normalized):
+        lines = normalized.splitlines()
+        for index, line in enumerate(lines):
+            if VALID_SCENE_START_PATTERN.match(line):
+                return "\n".join(lines[index:]).strip(), True, "trimmed chatbot preamble"
+        if len(lines) > 1 and not lines[0].strip().startswith("#"):
+            return "\n".join(lines[1:]).strip(), True, "removed first chatbot-style line"
+
+    return normalized, False, ""
 
 
 def default_settings() -> GenerationSettings:
@@ -76,12 +120,13 @@ def generate_and_save(
     """Call Ollama, build draft metadata, and persist the result."""
 
     active_client = client or OllamaClient()
-    response = active_client.generate(
+    raw_response = active_client.generate(
         model=settings.model,
         prompt=prompt,
         temperature=settings.temperature,
         max_tokens=settings.max_tokens,
     )
+    response, cleaned_response, cleanup_reason = clean_model_output(raw_response)
     record = DraftRecord(
         scene_id=source.scene_id,
         draft_number=next_draft_number(series_root, source.session_id, source.scene_id),
@@ -93,6 +138,9 @@ def generate_and_save(
         user_feedback=user_feedback,
         prompt=prompt,
         response=response,
+        cleaned_response=cleaned_response,
+        cleanup_reason=cleanup_reason,
+        prompt_version=PROMPT_VERSION,
     )
     save_draft(series_root, source.session_id, record)
     return record

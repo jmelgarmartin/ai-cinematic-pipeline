@@ -163,8 +163,13 @@ Arranca Ollama y descarga el modelo deseado, por ejemplo:
 
 ```powershell
 ollama serve
-ollama pull qwen3:30b
+ollama pull gemma4:latest
 ```
+
+Para esta fase se recomiendan modelos instruct o no-reasoning. Los modelos de
+razonamiento, como algunas variantes de Qwen, pueden devolver reasoning visible
+tipo `Okay, let's...` o `First, I need...`. El editor incluye limpieza defensiva,
+pero el output esperado siempre es una escena final, no analisis ni informe.
 
 La UI local se abre con:
 
@@ -196,7 +201,8 @@ La version final aceptada se guarda en:
 ```
 
 Cada draft conserva prompt, respuesta, modelo, temperatura, feedback, hashes de
-origen y timestamp. Estos outputs son privados y no se versionan.
+origen, timestamp, version de prompt y si hubo limpieza de salida. Estos outputs
+son privados y no se versionan.
 
 ## Entorno en PowerShell
 

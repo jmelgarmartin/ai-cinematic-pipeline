@@ -191,6 +191,9 @@ def load_draft(root: Path, session_id: str, scene_id: str, draft_number: int) ->
         user_feedback=str(data.get("user_feedback", "")),
         prompt=str(data["prompt"]),
         response=str(data["response"]),
+        cleaned_response=bool(data.get("cleaned_response", False)),
+        cleanup_reason=str(data.get("cleanup_reason", "")),
+        prompt_version=str(data.get("prompt_version", "scene_editor_v1")),
     )
 
 
