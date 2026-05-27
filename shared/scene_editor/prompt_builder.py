@@ -19,6 +19,16 @@ Restricciones obligatorias:
 - Conserva la informacion importante del screenplay y de las notas.
 - Si falta informacion, no la rellenes con hechos nuevos.
 - Entrega solo la escena reescrita en markdown.
+
+Contrato de salida:
+- Empieza directamente con la escena.
+- No escribas titulos como "Revision", "Optimizacion", "Objetivo" o similares.
+- No expliques lo que vas a hacer.
+- No incluyas analisis, comentarios editoriales ni justificacion.
+- No uses frases como "A continuacion", "Presento una version" o "El guion actual".
+- No uses separadores decorativos como "---".
+- No dividas la respuesta en propuesta, revision o recomendaciones.
+- El output debe ser utilizable como borrador final de screenplay, no como informe.
 """
 
 
@@ -29,6 +39,7 @@ def build_initial_prompt(source: SceneSource) -> str:
 
 # TAREA
 Genera un primer borrador cinematografico final para la escena `{source.scene_id}`.
+La primera linea de tu respuesta debe pertenecer a la escena, no a una explicacion.
 
 # SCREENPLAY BASE
 {source.screenplay_markdown}
@@ -53,6 +64,7 @@ def build_refinement_prompt(
 # TAREA
 Refina el borrador existente de la escena `{source.scene_id}` usando el feedback
 nuevo. No reinicies desde cero: conserva lo que funcione del borrador anterior.
+La primera linea de tu respuesta debe pertenecer a la escena refinada, no a una explicacion.
 
 # SCREENPLAY BASE ORIGINAL
 {source.screenplay_markdown}
