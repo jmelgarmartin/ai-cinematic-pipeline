@@ -28,7 +28,9 @@ INDEX_FILE_NAME = "screenplay_index.json"
 
 DESCRIPTION_TYPES = {"description"}
 DIALOGUE_TYPES = {"dialogue", "npc_dialogue"}
-EXCLUDED_TYPES = {"meta_game", "dice_roll", "table_talk"}
+PLAYER_INTENT_TYPES = {"player_intent"}
+PLAYER_QUESTION_TYPES = {"player_question"}
+EXCLUDED_TYPES = {"rules_meta", "table_talk"}
 REVIEW_TYPES = {"unclear"}
 SPEAKER_LABELS = {
     "SPEAKER_01": "OLIVIA",
@@ -67,6 +69,8 @@ class RenderedScene:
     markdown: str
     descriptions: int
     dialogues: int
+    player_intents: int
+    player_questions: int
     review_required: int
     speakers: list[str]
 
@@ -253,11 +257,26 @@ def render_review_section(entries: list[CleanEntry]) -> list[str]:
     return lines
 
 
+def render_trace_section(title: str, entries: list[CleanEntry]) -> list[str]:
+    """Render non-screenplay traceability sections."""
+
+    if not entries:
+        return []
+
+    lines = [f"## {title}", ""]
+    for entry in entries:
+        speaker = entry.speaker or "UNKNOWN_SPEAKER"
+        lines.extend([f"[{speaker}]", entry.text, ""])
+    return lines
+
+
 def render_scene(scene: CleanScene) -> RenderedScene:
     """Render one cleaned scene into markdown and counters."""
 
     descriptions = [entry for entry in scene.entries if entry.type in DESCRIPTION_TYPES]
     dialogues = [entry for entry in scene.entries if entry.type in DIALOGUE_TYPES]
+    player_intents = [entry for entry in scene.entries if entry.type in PLAYER_INTENT_TYPES]
+    player_questions = [entry for entry in scene.entries if entry.type in PLAYER_QUESTION_TYPES]
     review_entries = [entry for entry in scene.entries if entry.type in REVIEW_TYPES]
     speakers = sorted(
         {
@@ -275,6 +294,12 @@ def render_scene(scene: CleanScene) -> RenderedScene:
         *render_dialogue_section(dialogues),
     ]
     review_section = render_review_section(review_entries)
+    intent_section = render_trace_section("PLAYER_INTENT", player_intents)
+    question_section = render_trace_section("PLAYER_QUESTION", player_questions)
+    if intent_section:
+        lines.extend(["", *intent_section])
+    if question_section:
+        lines.extend(["", *question_section])
     if review_section:
         lines.extend(["", *review_section])
 
@@ -284,6 +309,8 @@ def render_scene(scene: CleanScene) -> RenderedScene:
         markdown=markdown,
         descriptions=len(descriptions),
         dialogues=len(dialogues),
+        player_intents=len(player_intents),
+        player_questions=len(player_questions),
         review_required=len(review_entries),
         speakers=speakers,
     )
@@ -326,6 +353,8 @@ def write_screenplay_index(
         "total_scenes": len(scenes),
         "total_dialogues": sum(scene.dialogues for scene in scenes),
         "total_descriptions": sum(scene.descriptions for scene in scenes),
+        "total_player_intents": sum(scene.player_intents for scene in scenes),
+        "total_player_questions": sum(scene.player_questions for scene in scenes),
         "total_review_required": sum(scene.review_required for scene in scenes),
         "speakers": aggregate_speakers(scenes),
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -334,6 +363,8 @@ def write_screenplay_index(
                 "scene_id": scene.scene_id,
                 "dialogues": scene.dialogues,
                 "descriptions": scene.descriptions,
+                "player_intents": scene.player_intents,
+                "player_questions": scene.player_questions,
                 "review_required": scene.review_required,
                 "speakers": scene.speakers,
             }
@@ -372,6 +403,8 @@ def record_screenplay_session(
             "total_scenes": len(scenes),
             "total_dialogues": sum(scene.dialogues for scene in scenes),
             "total_descriptions": sum(scene.descriptions for scene in scenes),
+            "total_player_intents": sum(scene.player_intents for scene in scenes),
+            "total_player_questions": sum(scene.player_questions for scene in scenes),
             "total_review_required": sum(scene.review_required for scene in scenes),
         }
     )
@@ -433,6 +466,8 @@ def summarize(scenes: list[RenderedScene]) -> str:
             "scenes": len(scenes),
             "dialogues": sum(scene.dialogues for scene in scenes),
             "descriptions": sum(scene.descriptions for scene in scenes),
+            "player_intents": sum(scene.player_intents for scene in scenes),
+            "player_questions": sum(scene.player_questions for scene in scenes),
             "review_required": sum(scene.review_required for scene in scenes),
         }
     )
@@ -441,6 +476,8 @@ def summarize(scenes: list[RenderedScene]) -> str:
             f"Escenas de guion: {counters['scenes']}",
             f"Dialogos incluidos: {counters['dialogues']}",
             f"Descripciones incluidas: {counters['descriptions']}",
+            f"Intenciones de jugador: {counters['player_intents']}",
+            f"Preguntas de jugador: {counters['player_questions']}",
             f"Entradas para revision: {counters['review_required']}",
             f"Personajes en dialogo: {', '.join(aggregate_speakers(scenes)) or 'ninguno'}",
         ]

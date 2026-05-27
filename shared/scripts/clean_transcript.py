@@ -12,6 +12,7 @@ import hashlib
 import json
 import logging
 import re
+import string
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass
@@ -35,8 +36,9 @@ ENTRY_TYPES = (
     "description",
     "dialogue",
     "npc_dialogue",
-    "meta_game",
-    "dice_roll",
+    "player_intent",
+    "player_question",
+    "rules_meta",
     "table_talk",
     "unclear",
 )
@@ -66,7 +68,7 @@ NPC_QUOTED_PATTERN = re.compile(
     rf"(?P<verb>{'|'.join(NPC_VERBS)})\s*:?\s*[\"“](?P<dialogue>.+?)[\"”]\s*$",
 )
 
-DICE_ROLL_PATTERNS = (
+RULES_PATTERNS = (
     re.compile(r"\b\d+d\d+\b", re.IGNORECASE),
     re.compile(r"\bhaz una tirada\b", re.IGNORECASE),
     re.compile(r"\bhacer una tirada\b", re.IGNORECASE),
@@ -75,9 +77,12 @@ DICE_ROLL_PATTERNS = (
     re.compile(r"\bhe sacado \d+\b", re.IGNORECASE),
     re.compile(r"\bdificultad\s+\d+\b", re.IGNORECASE),
     re.compile(r"\bdados?\b", re.IGNORECASE),
+    re.compile(r"\bgastar afortunad[oa]\b", re.IGNORECASE),
+    re.compile(r"\btengo ventaja\b", re.IGNORECASE),
+    re.compile(r"\bpuedo gastar\b", re.IGNORECASE),
 )
 
-META_GAME_MARKERS = (
+PLAYER_QUESTION_MARKERS = (
     "que haceis",
     "que haces",
     "como reaccionais",
@@ -92,10 +97,14 @@ META_GAME_MARKERS = (
     "cuentanos",
 )
 
-DICE_ROLL_MARKERS = (
+RULES_MARKERS = (
     "percepcion",
     "persuasion",
     "investigacion",
+    "afortunado",
+    "ventaja",
+    "dificultad",
+    "tirada",
 )
 
 TABLE_TALK_MARKERS = (
@@ -113,6 +122,66 @@ TABLE_TALK_MARKERS = (
     "no te escucho",
     "puedo repetir",
     "me he perdido",
+    "que guapo",
+    "jajaja",
+    "jeje",
+)
+
+TABLE_TALK_EXACT = (
+    "vale",
+    "ok",
+    "okay",
+    "vale ok",
+    "vale, ok",
+    "perfecto",
+    "claro",
+    "si",
+    "no",
+)
+
+PLAYER_INTENT_MARKERS = (
+    "voy a",
+    "intento",
+    "quiero",
+    "me acerco",
+    "me alejo",
+    "saco ",
+    "cojo",
+    "coge",
+    "agarro",
+    "miro",
+    "busco",
+    "reviso",
+    "le ayudo",
+    "la ayudo",
+    "lo ayudo",
+    "llamo",
+    "salgo",
+    "entro",
+    "corro",
+    "me escondo",
+    "taponar",
+    "tranquilizarla",
+    "hacerle una foto",
+    "y despacio",
+)
+
+DIALOGUE_MARKERS = (
+    "no me gusta",
+    "tenemos que",
+    "quien eres",
+    "quién eres",
+    "necesito",
+    "ayuda",
+    "ayudame",
+    "ayúdame",
+    "tranquila",
+    "tranquilo",
+    "ven",
+    "sal de aqui",
+    "sal de aquí",
+    "no pasa nada",
+    "cuidado",
 )
 
 DESCRIPTION_MARKERS = (
@@ -288,6 +357,79 @@ def parse_scene_file(path: Path) -> list[CandidateLine]:
     return lines
 
 
+def is_rules_meta(normalized: str) -> bool:
+    """Return true for mechanics, resources, rolls, and rule-facing text."""
+
+    if any(pattern.search(normalized) for pattern in RULES_PATTERNS):
+        return True
+    return contains_any(normalized, RULES_MARKERS) and (
+        "tirada" in normalized
+        or "haz " in normalized
+        or "saco " in normalized
+        or "puedo gastar" in normalized
+    )
+
+
+def is_player_question(normalized: str) -> bool:
+    """Return true for questions about possible actions or GM prompts."""
+
+    if contains_any(normalized, PLAYER_QUESTION_MARKERS) and len(normalized) <= 300:
+        return True
+    if "?" not in normalized and "¿" not in normalized:
+        return False
+    if "puedo " in normalized or "puedo hacer" in normalized or "puedo intentar" in normalized:
+        return True
+    question_starters = (
+        "puedo",
+        "podria",
+        "podría",
+        "veo",
+        "escucho",
+        "hay",
+        "consigo",
+        "me da tiempo",
+        "puedo intentar",
+        "puedo hacer",
+    )
+    stripped = normalized.strip(" ¿?¡!")
+    return stripped.startswith(question_starters)
+
+
+def is_table_talk(normalized: str) -> bool:
+    """Return true for short social or non-narrative table chatter."""
+
+    stripped = normalized.strip(" .,!¡¿?")
+    compact = stripped.translate(str.maketrans("", "", string.punctuation)).strip()
+    if stripped in TABLE_TALK_EXACT:
+        return True
+    if compact in TABLE_TALK_EXACT:
+        return True
+    if contains_any(normalized, TABLE_TALK_MARKERS):
+        return True
+    return len(stripped.split()) <= 3 and stripped in {"vale ok", "ok vale", "muy bien"}
+
+
+def is_player_intent(normalized: str) -> bool:
+    """Return true for player-declared actions, plans, or attempted actions."""
+
+    return contains_any(normalized, PLAYER_INTENT_MARKERS)
+
+
+def is_dialogue(normalized: str) -> bool:
+    """Return true only for conservative in-fiction spoken lines."""
+
+    stripped = normalized.strip(" ¿?¡!")
+    if not stripped:
+        return False
+    if contains_any(normalized, DIALOGUE_MARKERS):
+        return True
+    if normalized.startswith(("\"", "“")):
+        return True
+    if len(stripped) <= 120 and "?" in normalized:
+        return not is_player_question(normalized)
+    return False
+
+
 def classify_line(line: CandidateLine) -> str:
     """Classify a transcript line using deterministic priority heuristics."""
 
@@ -295,18 +437,13 @@ def classify_line(line: CandidateLine) -> str:
     if not normalized.strip():
         return "unclear"
 
-    if any(pattern.search(normalized) for pattern in DICE_ROLL_PATTERNS):
-        return "dice_roll"
+    if is_rules_meta(normalized):
+        return "rules_meta"
 
-    if contains_any(normalized, DICE_ROLL_MARKERS) and (
-        "tirada" in normalized or "haz " in normalized or "saco " in normalized
-    ):
-        return "dice_roll"
+    if is_player_question(normalized):
+        return "player_question"
 
-    if contains_any(normalized, META_GAME_MARKERS) and len(normalized) <= 300:
-        return "meta_game"
-
-    if contains_any(normalized, TABLE_TALK_MARKERS):
+    if is_table_talk(normalized):
         return "table_talk"
 
     if line.speaker == NARRATOR_SPEAKER:
@@ -323,7 +460,10 @@ def classify_line(line: CandidateLine) -> str:
     if line.speaker is not None and contains_any(normalized, NARRATIVE_MARKERS):
         return "description"
 
-    if line.speaker is not None:
+    if line.speaker is not None and is_player_intent(normalized):
+        return "player_intent"
+
+    if line.speaker is not None and is_dialogue(normalized):
         return "dialogue"
 
     return "unclear"

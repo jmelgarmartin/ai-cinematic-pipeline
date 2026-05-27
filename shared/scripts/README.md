@@ -65,10 +65,13 @@ Tipos soportados:
 - `description`
 - `dialogue`
 - `npc_dialogue`
-- `meta_game`
-- `dice_roll`
+- `player_intent`
+- `player_question`
+- `rules_meta`
 - `table_talk`
 - `unclear`
+
+`dialogue` es extremadamente conservador: solo debe representar frases que parecen dichas por el personaje dentro de la ficcion. `player_intent` representa acciones declaradas por jugadores, y `player_question` representa preguntas al master o preguntas sobre posibilidades de accion.
 
 `SPEAKER_00` puede ser narrador/director o estar interpretando un PNJ. Cuando detecta atribuciones como `Mary dice...`, `Mary: ...` o `la mujer susurra: "..."`, el tipo pasa a `npc_dialogue` y se añade `npc_name` cuando puede extraerse sin inventarlo.
 
@@ -80,6 +83,7 @@ Limitaciones actuales:
 - No resuelve identidades reales de personajes.
 - La deteccion de `npc_dialogue` depende de atribuciones explicitas y puede no capturar dialogo indirecto o voces sin nombre.
 - No elimina ni normaliza bromas, tiradas, interrupciones ni dudas de reglas.
+- El pipeline sigue siendo determinista y reversible: cada entrada conserva `raw_line`, `text`, `speaker`, `line_number` y `entry_id`.
 - Futuras mejoras: configuracion externa por serie, tests con fixtures y reglas mas finas para dialogo en personaje.
 
 ## build_screenplay.py
@@ -113,11 +117,10 @@ Tipos incluidos:
 
 Tipos excluidos del guion principal:
 
-- `meta_game`
-- `dice_roll`
+- `rules_meta`
 - `table_talk`
 
-`unclear` no entra en el guion principal y se coloca al final de cada escena en `REVIEW_REQUIRED` para revision manual.
+`player_intent` y `player_question` no entran en el guion principal, pero se conservan en secciones `PLAYER_INTENT` y `PLAYER_QUESTION`. `unclear` se coloca al final de cada escena en `REVIEW_REQUIRED` para revision manual.
 
 Limitaciones actuales:
 
