@@ -9,13 +9,15 @@ steps.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import re
 import unicodedata
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 
 LOGGER = logging.getLogger(__name__)
@@ -24,6 +26,7 @@ SPEAKER_PATTERN = re.compile(r"^(?P<speaker>SPEAKER_\d+):\s*(?P<text>.*)$")
 SCENE_FILE_PATTERN = "escena_*.txt"
 INDEX_FILE_NAME = "scenes_index.json"
 DEFAULT_OUTPUT_DIR = Path("processing") / "scene_candidates"
+PROCESSED_SESSIONS_PATH = Path("processing") / "metadata" / "processed_sessions.json"
 SUPPORTED_INPUT_EXTENSIONS = (".txt", ".srt", ".json")
 
 NARRATOR_SPEAKER = "SPEAKER_00"
@@ -122,6 +125,16 @@ class Scene:
             if line.speaker is not None and line.speaker != NARRATOR_SPEAKER
         }
         return sorted(speakers)
+
+
+@dataclass(frozen=True)
+class SplitResult:
+    """Result of a split command, including idempotent skip state."""
+
+    scenes: list[Scene]
+    skipped: bool
+    source_file: Path
+    output_dir: Path
 
 
 def normalize_text(text: str) -> str:
@@ -328,6 +341,85 @@ def resolve_input_path(project_root: Path, input_path: Path) -> Path:
     return project_root / input_path
 
 
+def sha256_file(path: Path) -> str:
+    """Return the SHA-256 digest for an input file."""
+
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def relative_to_series(path: Path, series_root: Path) -> str:
+    """Return a stable POSIX-style path relative to the series root."""
+
+    return path.resolve().relative_to(series_root.resolve()).as_posix()
+
+
+def load_processed_sessions(metadata_path: Path) -> dict[str, list[dict[str, Any]]]:
+    """Load processed session metadata, tolerating a missing file."""
+
+    if not metadata_path.exists():
+        return {"sessions": []}
+    data = json.loads(metadata_path.read_text(encoding="utf-8"))
+    sessions = data.get("sessions", [])
+    if not isinstance(sessions, list):
+        raise ValueError(f"Invalid processed sessions metadata: {metadata_path}")
+    return {"sessions": sessions}
+
+
+def write_processed_sessions(
+    metadata_path: Path,
+    registry: dict[str, list[dict[str, Any]]],
+) -> None:
+    """Persist processed session metadata as private pipeline state."""
+
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_path.write_text(
+        json.dumps(registry, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def has_processed_sha(
+    registry: dict[str, list[dict[str, Any]]],
+    source_sha256: str,
+) -> bool:
+    """Return true when the exact input contents were already processed."""
+
+    return any(session.get("sha256") == source_sha256 for session in registry["sessions"])
+
+
+def record_processed_session(
+    registry: dict[str, list[dict[str, Any]]],
+    *,
+    source_file: Path,
+    source_path: str,
+    source_sha256: str,
+    output_dir: str,
+    total_scenes: int,
+) -> None:
+    """Insert or replace metadata for one source path."""
+
+    sessions = [
+        session
+        for session in registry["sessions"]
+        if session.get("source_path") != source_path
+    ]
+    sessions.append(
+        {
+            "source_file": source_file.name,
+            "source_path": source_path,
+            "sha256": source_sha256,
+            "processed_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "output_dir": output_dir,
+            "total_scenes": total_scenes,
+        }
+    )
+    registry["sessions"] = sorted(sessions, key=lambda session: session["source_path"])
+
+
 def clear_previous_scene_outputs(output_dir: Path) -> None:
     """Remove previous generated scene files from the scene candidate folder."""
 
@@ -394,7 +486,12 @@ def summarize(scenes: list[Scene]) -> str:
     )
 
 
-def split_session(series_name: str, input_path: Path | None = None) -> list[Scene]:
+def split_session(
+    series_name: str,
+    input_path: Path | None = None,
+    *,
+    force: bool = False,
+) -> SplitResult:
     """Read a transcript, split it, and write scene candidate outputs."""
 
     project_root = get_project_root()
@@ -413,7 +510,19 @@ def split_session(series_name: str, input_path: Path | None = None) -> list[Scen
         raise FileNotFoundError(f"Transcript not found: {resolved_input}")
 
     session_name = resolved_input.stem
-    target_output_dir = series_root / DEFAULT_OUTPUT_DIR
+    target_output_dir = series_root / DEFAULT_OUTPUT_DIR / session_name
+    metadata_path = series_root / PROCESSED_SESSIONS_PATH
+    source_sha256 = sha256_file(resolved_input)
+    registry = load_processed_sessions(metadata_path)
+
+    if has_processed_sha(registry, source_sha256) and not force:
+        print("Session already processed. Use --force to regenerate.")
+        return SplitResult(
+            scenes=[],
+            skipped=True,
+            source_file=resolved_input,
+            output_dir=target_output_dir,
+        )
 
     LOGGER.info("Series: %s", series_name)
     LOGGER.info("Reading transcript: %s", resolved_input)
@@ -425,7 +534,22 @@ def split_session(series_name: str, input_path: Path | None = None) -> list[Scen
     write_scene_files(scenes, target_output_dir)
     write_index(session_name, scenes, target_output_dir)
 
-    return scenes
+    record_processed_session(
+        registry,
+        source_file=resolved_input,
+        source_path=relative_to_series(resolved_input, series_root),
+        source_sha256=source_sha256,
+        output_dir=relative_to_series(target_output_dir, series_root),
+        total_scenes=len(scenes),
+    )
+    write_processed_sessions(metadata_path, registry)
+
+    return SplitResult(
+        scenes=scenes,
+        skipped=False,
+        source_file=resolved_input,
+        output_dir=target_output_dir,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -448,6 +572,11 @@ def build_parser() -> argparse.ArgumentParser:
             "file in <series>/input/raw_sessions is used."
         ),
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerate outputs even if the same input SHA-256 was already processed.",
+    )
     return parser
 
 
@@ -456,8 +585,9 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = build_parser().parse_args()
-    scenes = split_session(args.series, args.input)
-    print(summarize(scenes))
+    result = split_session(args.series, args.input, force=args.force)
+    if not result.skipped:
+        print(summarize(result.scenes))
 
 
 if __name__ == "__main__":

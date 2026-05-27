@@ -1,8 +1,0 @@
-SPEAKER_00: Entras a la cocina y ves que hay platos sin regar. Una caja de cereales abierta. Pero en un momento dado Todo se vuelve borroso. Es a una mujer de espaldas, vestida con ropa sanitaria. Se gira. Es Mary. ¿Cómo le gusta el café, señorita?
-
-SPEAKER_02: Solo.
-
-SPEAKER_00: Y la imagen se desvanece.
-
-SPEAKER_02: estás sola en la cocina y yo me he dado cuenta que le he respondido a ese espejismo correcto salgo de la cocina y me voy a quedar esperándolos en la entrada
-

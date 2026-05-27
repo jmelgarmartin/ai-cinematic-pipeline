@@ -12,13 +12,23 @@ Uso automatico con el transcript mas reciente de la serie:
 uv run python .\shared\scripts\split_full_session.py --series "La_Frecuencia_Bauman"
 ```
 
+El comando es idempotente. Registra cada archivo por SHA-256 en `<serie>/processing/metadata/processed_sessions.json`; si el mismo contenido ya fue procesado, muestra `Session already processed. Use --force to regenerate.` y termina sin reescribir escenas.
+
+Para reprocesar:
+
+```powershell
+uv run python .\shared\scripts\split_full_session.py --series "La_Frecuencia_Bauman" --force
+```
+
 Uso indicando un archivo concreto:
 
 ```powershell
 uv run python .\shared\scripts\split_full_session.py --series "La_Frecuencia_Bauman" --input ".\La_Frecuencia_Bauman\input\raw_sessions\sesion_01.txt"
 ```
 
-El script busca transcripts `.txt`, `.srt` o `.json` en `<serie>/input/raw_sessions/` y genera `escena_XXX.txt` y `scenes_index.json` en `<serie>/processing/scene_candidates/`.
+El script busca transcripts `.txt`, `.srt` o `.json` en `<serie>/input/raw_sessions/` y genera `escena_XXX.txt` y `scenes_index.json` en `<serie>/processing/scene_candidates/<session_stem>/`.
+
+Los transcripts reales, escenas candidatas y metadata de procesado son datos privados de trabajo y no se versionan por defecto.
 
 Limitaciones actuales:
 

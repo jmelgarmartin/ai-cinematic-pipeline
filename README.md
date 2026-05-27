@@ -17,6 +17,8 @@ SeriesIA/
 
 Cada carpeta de serie contiene su propio material de entrada, procesamiento, assets, video, audio, scripts y configuracion. Las series se crean al mismo nivel que `shared/`, no dentro de otra carpeta `SeriesIA`.
 
+Los datos reales de partidas no se versionan: transcripts, subtitulos, audio, referencias, assets privados y outputs intermedios quedan ignorados por git. Los resultados generados en `processing/scene_candidates/` y el registro `processing/metadata/processed_sessions.json` son estado privado del pipeline.
+
 ## Crear una serie
 
 ```powershell
@@ -51,10 +53,22 @@ Herramientas globales del pipeline:
 uv run python .\shared\scripts\split_full_session.py --series "La_Frecuencia_Bauman"
 ```
 
+El splitter es idempotente: si el mismo archivo ya fue procesado con el mismo SHA-256, no vuelve a generar escenas. Para regenerar de forma explicita:
+
+```powershell
+uv run python .\shared\scripts\split_full_session.py --series "La_Frecuencia_Bauman" --force
+```
+
 Tambien puedes indicar un transcript concreto:
 
 ```powershell
 uv run python .\shared\scripts\split_full_session.py --series "La_Frecuencia_Bauman" --input ".\La_Frecuencia_Bauman\input\raw_sessions\sesion_01.txt"
+```
+
+El output se escribe por sesion en:
+
+```text
+<serie>/processing/scene_candidates/<session_stem>/
 ```
 
 ## Entorno en PowerShell
