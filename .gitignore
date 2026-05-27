@@ -9,6 +9,8 @@ shared/models/*
 shared/loras/
 shared/voices/
 
+**/input/raw_sessions/
+
 **/video/renders/
 **/video/final/
 **/audio/final_mix/

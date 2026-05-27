@@ -54,18 +54,12 @@ def create_series_structure(series_name: str) -> None:
         directory.mkdir(parents=True, exist_ok=True)
         print(f"[OK] Created: {directory}")
 
-    # Base files
+    # Base files. Pipeline tools live in shared/scripts; the per-series scripts
+    # folder is reserved for optional overrides or one-off utilities.
     base_files = [
         series_root / "README.md",
         series_root / "config" / "series_config.yaml",
-
-        series_root / "scripts" / "00_split_full_session.py",
-        series_root / "scripts" / "01_clean_transcript.py",
-        series_root / "scripts" / "02_extract_scenes.py",
-        series_root / "scripts" / "03_build_screenplay.py",
-        series_root / "scripts" / "04_generate_storyboard.py",
-        series_root / "scripts" / "05_generate_prompts.py",
-        series_root / "scripts" / "06_build_episode.py",
+        series_root / "scripts" / "README.md",
     ]
 
     for file in base_files:

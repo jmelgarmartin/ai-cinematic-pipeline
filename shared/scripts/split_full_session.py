@@ -24,6 +24,7 @@ SPEAKER_PATTERN = re.compile(r"^(?P<speaker>SPEAKER_\d+):\s*(?P<text>.*)$")
 SCENE_FILE_PATTERN = "escena_*.txt"
 INDEX_FILE_NAME = "scenes_index.json"
 DEFAULT_OUTPUT_DIR = Path("processing") / "scene_candidates"
+SUPPORTED_INPUT_EXTENSIONS = (".txt", ".srt", ".json")
 
 NARRATOR_SPEAKER = "SPEAKER_00"
 MIN_SCENE_LINES = 8
@@ -283,14 +284,48 @@ def split_into_scenes(lines: list[TranscriptLine]) -> list[Scene]:
     return scenes
 
 
-def detect_series_root(input_path: Path) -> Path:
-    """Infer the series root from an input transcript path."""
+def get_project_root() -> Path:
+    """Resolve the project root from this global script location."""
 
-    resolved_input = input_path.resolve()
-    for parent in resolved_input.parents:
-        if (parent / "input").is_dir() and (parent / "processing").is_dir():
-            return parent
-    return Path.cwd().resolve()
+    return Path(__file__).resolve().parents[2]
+
+
+def resolve_series_root(project_root: Path, series_name: str) -> Path:
+    """Resolve and validate a series root directory."""
+
+    series_root = project_root / series_name
+    if not series_root.is_dir():
+        raise FileNotFoundError(f"Series not found: {series_root}")
+    return series_root
+
+
+def find_latest_transcript(series_root: Path) -> Path:
+    """Find the newest transcript-like file in input/raw_sessions."""
+
+    raw_sessions_dir = series_root / "input" / "raw_sessions"
+    if not raw_sessions_dir.is_dir():
+        raise FileNotFoundError(f"Raw sessions directory not found: {raw_sessions_dir}")
+
+    candidates = [
+        path
+        for path in raw_sessions_dir.iterdir()
+        if path.is_file() and path.suffix.lower() in SUPPORTED_INPUT_EXTENSIONS
+    ]
+    if not candidates:
+        supported = ", ".join(SUPPORTED_INPUT_EXTENSIONS)
+        raise FileNotFoundError(
+            f"No transcript files found in {raw_sessions_dir} ({supported})"
+        )
+
+    return max(candidates, key=lambda path: (path.stat().st_mtime, path.name))
+
+
+def resolve_input_path(project_root: Path, input_path: Path) -> Path:
+    """Resolve an optional input path without depending on current directory."""
+
+    if input_path.is_absolute():
+        return input_path
+    return project_root / input_path
 
 
 def clear_previous_scene_outputs(output_dir: Path) -> None:
@@ -359,18 +394,30 @@ def summarize(scenes: list[Scene]) -> str:
     )
 
 
-def split_session(input_path: Path, output_dir: Path | None = None) -> list[Scene]:
+def split_session(series_name: str, input_path: Path | None = None) -> list[Scene]:
     """Read a transcript, split it, and write scene candidate outputs."""
 
-    if not input_path.exists():
-        raise FileNotFoundError(f"Transcript not found: {input_path}")
+    project_root = get_project_root()
+    series_root = resolve_series_root(project_root, series_name)
+    resolved_input = (
+        resolve_input_path(project_root, input_path)
+        if input_path is not None
+        else find_latest_transcript(series_root)
+    )
 
-    session_name = input_path.stem
-    series_root = detect_series_root(input_path)
-    target_output_dir = output_dir or series_root / DEFAULT_OUTPUT_DIR
+    if resolved_input.suffix.lower() not in SUPPORTED_INPUT_EXTENSIONS:
+        supported = ", ".join(SUPPORTED_INPUT_EXTENSIONS)
+        raise ValueError(f"Unsupported input extension: {resolved_input.suffix}. Use {supported}")
 
-    LOGGER.info("Reading transcript: %s", input_path)
-    raw_text = input_path.read_text(encoding="utf-8")
+    if not resolved_input.exists():
+        raise FileNotFoundError(f"Transcript not found: {resolved_input}")
+
+    session_name = resolved_input.stem
+    target_output_dir = series_root / DEFAULT_OUTPUT_DIR
+
+    LOGGER.info("Series: %s", series_name)
+    LOGGER.info("Reading transcript: %s", resolved_input)
+    raw_text = resolved_input.read_text(encoding="utf-8")
     lines = parse_transcript(raw_text)
     scenes = split_into_scenes(lines)
 
@@ -388,15 +435,18 @@ def build_parser() -> argparse.ArgumentParser:
         description="Split a full session transcript into candidate scenes."
     )
     parser.add_argument(
-        "transcript",
-        type=Path,
-        help="Path to input/raw_sessions/<session>.txt",
+        "--series",
+        required=True,
+        help="Series directory name, for example La_Frecuencia_Bauman.",
     )
     parser.add_argument(
-        "--output-dir",
+        "--input",
         type=Path,
         default=None,
-        help="Optional output directory. Defaults to processing/scene_candidates.",
+        help=(
+            "Optional transcript path. If omitted, the newest .txt, .srt, or .json "
+            "file in <series>/input/raw_sessions is used."
+        ),
     )
     return parser
 
@@ -406,7 +456,7 @@ def main() -> None:
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     args = build_parser().parse_args()
-    scenes = split_session(args.transcript, args.output_dir)
+    scenes = split_session(args.series, args.input)
     print(summarize(scenes))
 
 

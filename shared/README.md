@@ -12,6 +12,6 @@ Contenido previsto:
 - `sfx`: efectos de sonido.
 - `templates`: plantillas de guion, metadata, prompts o configuracion.
 - `prompts`: prompts base y variantes reutilizables.
-- `scripts`: utilidades comunes.
+- `scripts`: herramientas globales del pipeline reutilizables por cualquier serie.
 - `overlays`: recursos visuales compartidos.
 - `cache`: datos generados temporalmente.

@@ -45,6 +45,18 @@ Por ejemplo:
 uv run python create_series.py "La_Frecuencia_Bauman"
 ```
 
+Herramientas globales del pipeline:
+
+```powershell
+uv run python .\shared\scripts\split_full_session.py --series "La_Frecuencia_Bauman"
+```
+
+Tambien puedes indicar un transcript concreto:
+
+```powershell
+uv run python .\shared\scripts\split_full_session.py --series "La_Frecuencia_Bauman" --input ".\La_Frecuencia_Bauman\input\raw_sessions\sesion_01.txt"
+```
+
 ## Entorno en PowerShell
 
 Normalmente no hace falta activar el entorno si usas `uv run`. Si quieres activarlo manualmente:
