@@ -1,0 +1,21 @@
+[project]
+name = "series-ia"
+version = "0.1.0"
+description = "Pipeline scripts for AI-assisted series production."
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "nltk",
+    "orjson",
+    "pydantic",
+    "python-dotenv",
+    "pyyaml",
+    "rich",
+    "sentence-transformers",
+    "spacy",
+    "tqdm",
+    "typer",
+]
+
+[tool.uv]
+package = false
