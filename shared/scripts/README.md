@@ -35,3 +35,45 @@ Limitaciones actuales:
 - Las localizaciones, saltos temporales y eventos se detectan por palabras clave.
 - El resultado es una primera segmentacion candidata, no una escena final validada.
 - El metajuego y comentarios fuera de personaje se conservan sin clasificar.
+
+## clean_transcript.py
+
+Convierte escenas candidatas de texto en JSON estructurado por entradas. Este paso no borra texto, no limpia metajuego y no genera guion cinematografico; solo parsea, clasifica y etiqueta contenido.
+
+Uso automatico con la sesion de escenas candidatas mas reciente:
+
+```powershell
+uv run python .\shared\scripts\clean_transcript.py --series "La_Frecuencia_Bauman"
+```
+
+Para reprocesar:
+
+```powershell
+uv run python .\shared\scripts\clean_transcript.py --series "La_Frecuencia_Bauman" --force
+```
+
+Tambien acepta una sesion concreta:
+
+```powershell
+uv run python .\shared\scripts\clean_transcript.py --series "La_Frecuencia_Bauman" --session "dialogos_2026-01-22 18-06-54"
+```
+
+Lee desde `<serie>/processing/scene_candidates/<session_stem>/` y escribe en `<serie>/processing/cleaned_transcripts/<session_stem>/`.
+
+Tipos soportados:
+
+- `description`
+- `dialogue`
+- `meta_game`
+- `dice_roll`
+- `table_talk`
+- `unclear`
+
+El comando es idempotente. Registra el SHA-256 de la carpeta de escenas candidatas en `<serie>/processing/metadata/cleaned_sessions.json`; si el contenido ya fue procesado, muestra `Cleaned session already processed. Use --force to regenerate.` y termina sin reescribir.
+
+Limitaciones actuales:
+
+- La clasificacion es heuristica y conservadora.
+- No resuelve identidades reales de personajes.
+- No elimina ni normaliza bromas, tiradas, interrupciones ni dudas de reglas.
+- Futuras mejoras: configuracion externa por serie, tests con fixtures y reglas mas finas para dialogo en personaje.
