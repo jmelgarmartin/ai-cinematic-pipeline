@@ -127,6 +127,31 @@ entrada trazable para futuras herramientas editoriales o LLMs locales.
 Ejemplo completo de nota editada:
 `docs/examples/generated_editorial_note_example.md`.
 
+## Editorial UI
+
+La interfaz editorial local permite revisar cada escena, comparar el screenplay
+base con sus notas editoriales, guardar cambios y aplicar las notas para generar
+`annotated_screenplay`.
+
+Arranque:
+
+```powershell
+uv run streamlit run .\shared\ui\editorial_app.py
+```
+
+Flujo recomendado:
+
+1. Generar `processing/screenplay/<session>/`.
+2. Inicializar notas con `init_editorial_notes.py`.
+3. Abrir la UI de Streamlit.
+4. Editar escena por escena.
+5. Aplicar notas desde la UI o con `apply_editorial_notes.py`.
+6. Revisar `processing/annotated_screenplay/<session>/`.
+
+La UI no modifica el screenplay base. Solo escribe notas privadas en
+`editorial_notes/` y reutiliza la fase de anotacion existente para generar los
+JSON anotados.
+
 ## Entorno en PowerShell
 
 Normalmente no hace falta activar el entorno si usas `uv run`. Si quieres activarlo manualmente:

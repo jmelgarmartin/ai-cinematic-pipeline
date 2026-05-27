@@ -242,3 +242,7 @@ Despues de editar las notas, se aplican con:
 ```powershell
 uv run python .\shared\scripts\apply_editorial_notes.py --series "La_Frecuencia_Bauman" --session "dialogos_2026-01-22 18-06-54"
 ```
+
+La interfaz local de Streamlit en `shared/ui/editorial_app.py` complementa estos
+scripts: permite navegar escenas, editar notas, guardarlas y aplicar la fase de
+anotacion desde una UI local.

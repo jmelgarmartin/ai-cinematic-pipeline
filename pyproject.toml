@@ -13,6 +13,7 @@ dependencies = [
     "rich",
     "sentence-transformers",
     "spacy",
+    "streamlit>=1.57.0",
     "tqdm",
     "typer",
 ]
