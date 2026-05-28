@@ -14,6 +14,20 @@ class OllamaError(RuntimeError):
     """Raised when Ollama cannot complete a generation."""
 
 
+def model_supports_no_think_switch(model: str) -> bool:
+    """Return true for Qwen-family models that commonly accept /no_think."""
+
+    return "qwen" in model.lower()
+
+
+def prompt_for_model(model: str, prompt: str) -> str:
+    """Apply model-specific prompt switches without changing scene instructions."""
+
+    if model_supports_no_think_switch(model):
+        return f"/no_think\n\n{prompt}"
+    return prompt
+
+
 @dataclass(frozen=True)
 class OllamaClient:
     """Minimal wrapper around Ollama's /api/generate endpoint."""
@@ -33,7 +47,7 @@ class OllamaClient:
 
         payload: dict[str, Any] = {
             "model": model,
-            "prompt": prompt,
+            "prompt": prompt_for_model(model, prompt),
             "stream": False,
             "think": False,
             "options": {

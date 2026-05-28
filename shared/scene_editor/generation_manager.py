@@ -19,6 +19,7 @@ VALID_SCENE_START_PATTERN = re.compile(
 CHATBOT_PREFIX_PATTERN = re.compile(
     r"(?is)^\s*(?:okay[,\s]|let's\b|first[,\s]|i need to\b|the user\b|we need to\b|here is\b|claro[,\s]|voy a\b|a continuacion\b)"
 )
+THINK_BLOCK_PATTERN = re.compile(r"(?is)^\s*<think>.*?</think>\s*")
 META_LINE_PATTERNS = (
     re.compile(r"(?is)^\s*okay[,\s].*?(?=\n\s*(?:#\s*)?(?:ESCENA\b|INT\.|EXT\.|##\s+INT\.|##\s+EXT\.))"),
     re.compile(r"(?is)^\s*let's.*?(?=\n\s*(?:#\s*)?(?:ESCENA\b|INT\.|EXT\.|##\s+INT\.|##\s+EXT\.))"),
@@ -31,6 +32,14 @@ def clean_model_output(text: str) -> tuple[str, bool, str]:
     normalized = text.strip()
     if not normalized:
         return normalized, False, ""
+
+    without_think = THINK_BLOCK_PATTERN.sub("", normalized).strip()
+    if without_think != normalized:
+        normalized = without_think
+        start_match = VALID_SCENE_START_PATTERN.search(normalized)
+        if start_match and start_match.start() > 0:
+            normalized = normalized[start_match.start() :].strip()
+        return normalized, True, "removed visible thinking block"
 
     start_match = VALID_SCENE_START_PATTERN.search(normalized)
     if start_match and start_match.start() > 0:
