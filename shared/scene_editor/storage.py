@@ -163,16 +163,34 @@ def append_history(directory: Path, record: DraftRecord) -> None:
     history_path = directory / CONVERSATION_HISTORY_FILE
     if history_path.exists():
         data = json.loads(history_path.read_text(encoding="utf-8"))
-        history = data.get("drafts", [])
+        history = data.get("history", data.get("drafts", []))
         if not isinstance(history, list):
             history = []
     else:
         history = []
-    history.append(asdict(record))
+    history.append(history_entry(record))
     history_path.write_text(
-        json.dumps({"drafts": history}, ensure_ascii=False, indent=2) + "\n",
+        json.dumps({"history": history}, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
+
+def history_entry(record: DraftRecord) -> dict[str, Any]:
+    """Return a compact, legible history event for one generated draft."""
+
+    return {
+        "event": "draft_generated",
+        "scene_id": record.scene_id,
+        "feedback_sent": record.user_feedback,
+        "source_draft": record.source_draft_number,
+        "generated_draft": record.draft_number,
+        "model": record.model,
+        "temperature": record.temperature,
+        "prompt_version": record.prompt_version,
+        "timestamp": record.timestamp,
+        "cleaned_response": record.cleaned_response,
+        "cleanup_reason": record.cleanup_reason,
+    }
 
 
 def load_draft(root: Path, session_id: str, scene_id: str, draft_number: int) -> DraftRecord:
@@ -194,6 +212,12 @@ def load_draft(root: Path, session_id: str, scene_id: str, draft_number: int) ->
         cleaned_response=bool(data.get("cleaned_response", False)),
         cleanup_reason=str(data.get("cleanup_reason", "")),
         prompt_version=str(data.get("prompt_version", "scene_editor_v1")),
+        source_draft_number=(
+            int(data["source_draft_number"])
+            if data.get("source_draft_number") is not None
+            else None
+        ),
+        user_evaluation=str(data.get("user_evaluation", "")),
     )
 
 
@@ -217,6 +241,63 @@ def save_final(root: Path, session_id: str, record: DraftRecord) -> None:
     payload["accepted_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
     (directory / f"{base_name}.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def save_draft_evaluation(
+    root: Path,
+    session_id: str,
+    scene_id: str,
+    draft_number: int,
+    evaluation: str,
+) -> None:
+    """Persist a manual editorial evaluation for one draft."""
+
+    if evaluation not in {"better", "same", "worse"}:
+        raise ValueError(f"Invalid evaluation: {evaluation}")
+
+    directory = draft_dir(root, session_id, scene_id)
+    draft_path = directory / f"draft_{draft_number:03d}.json"
+    if not draft_path.exists():
+        raise FileNotFoundError(f"Draft metadata not found: {draft_path}")
+
+    data = json.loads(draft_path.read_text(encoding="utf-8"))
+    data["user_evaluation"] = evaluation
+    draft_path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    append_evaluation_history(directory, scene_id, draft_number, evaluation)
+
+
+def append_evaluation_history(
+    directory: Path,
+    scene_id: str,
+    draft_number: int,
+    evaluation: str,
+) -> None:
+    """Append an editorial evaluation event to conversation history."""
+
+    history_path = directory / CONVERSATION_HISTORY_FILE
+    if history_path.exists():
+        data = json.loads(history_path.read_text(encoding="utf-8"))
+        history = data.get("history", data.get("drafts", []))
+        if not isinstance(history, list):
+            history = []
+    else:
+        history = []
+    history.append(
+        {
+            "event": "draft_evaluated",
+            "scene_id": scene_id,
+            "draft": draft_number,
+            "user_evaluation": evaluation,
+            "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+        }
+    )
+    history_path.write_text(
+        json.dumps({"history": history}, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
 

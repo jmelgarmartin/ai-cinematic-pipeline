@@ -41,6 +41,7 @@ Camara y forma:
 Personajes:
 - Describe menos rasgos fisicos y mas conducta.
 - La personalidad debe aparecer en como se sientan, miran, callan, tocan objetos, ocupan el espacio, evitan o fuerzan contacto visual, reaccionan al sonido o al entorno.
+- Evita describir personalidad directamente. La personalidad debe inferirse mediante comportamiento, ritmo y presencia.
 - No expliques psicologia interna.
 - No escribas "esta nerviosa", "esta incomoda", "esta agotada", "parece perturbada" si puedes mostrarlo con manos, taza, mirada, postura, respiracion, demora o silencio.
 

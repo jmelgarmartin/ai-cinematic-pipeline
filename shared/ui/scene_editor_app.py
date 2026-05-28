@@ -26,16 +26,24 @@ from shared.scene_editor.models import GenerationSettings  # noqa: E402
 from shared.scene_editor.ollama_client import OllamaClient, OllamaError  # noqa: E402
 from shared.scene_editor.storage import (  # noqa: E402
     final_paths,
-    latest_draft,
     list_draft_numbers,
     list_scene_ids,
     list_series,
     list_sessions,
     load_draft,
     load_scene_source,
+    save_draft_evaluation,
     save_final,
     series_root,
 )
+
+
+MODEL_OPTIONS = ("gemma4:latest", "qwen3:30b", "custom")
+EVALUATION_LABELS = {
+    "better": "Mejor",
+    "same": "Igual",
+    "worse": "Peor",
+}
 
 
 def reset_scene_index_when_context_changes(series: str, session: str) -> None:
@@ -54,15 +62,84 @@ def set_scene_index(index: int) -> None:
 
 
 def select_active_draft(root: Path, session_id: str, scene_id: str):
-    """Return the draft selected in the UI, defaulting to latest."""
+    """Return available draft numbers and the draft selected in the UI."""
 
     draft_numbers = list_draft_numbers(root, session_id, scene_id)
     if not draft_numbers:
-        return None
+        return draft_numbers, None
     labels = [f"draft_{number:03d}" for number in draft_numbers]
-    selected_label = st.selectbox("Historial de drafts", labels, index=len(labels) - 1)
+    selected_label = st.selectbox(
+        "Historial de drafts",
+        labels,
+        index=len(labels) - 1,
+        key=f"draft_selector_{session_id}_{scene_id}",
+    )
     selected_number = int(selected_label.split("_")[1])
-    return load_draft(root, session_id, scene_id, selected_number)
+    return draft_numbers, load_draft(root, session_id, scene_id, selected_number)
+
+
+def previous_draft_for_active(root: Path, session_id: str, scene_id: str, draft_numbers, active):
+    """Return the closest draft before the active one, if any."""
+
+    if active is None:
+        return None
+    previous_numbers = [number for number in draft_numbers if number < active.draft_number]
+    if not previous_numbers:
+        return None
+    return load_draft(root, session_id, scene_id, previous_numbers[-1])
+
+
+def draft_metadata_text(draft) -> str:
+    """Return compact draft metadata for captions."""
+
+    if draft is None:
+        return ""
+    evaluation = EVALUATION_LABELS.get(draft.user_evaluation, "Sin evaluar")
+    source = f" | origen: {draft.source_draft_number:03d}" if draft.source_draft_number else ""
+    return (
+        f"draft_{draft.draft_number:03d}{source} | {draft.model} | "
+        f"temp {draft.temperature:g} | {draft.timestamp} | "
+        f"{draft.prompt_version} | {evaluation}"
+    )
+
+
+def render_markdown_with_raw(title: str, markdown: str, *, height: int = 420) -> None:
+    """Render markdown and provide raw text in an expander."""
+
+    st.markdown(markdown or "_Sin contenido._")
+    with st.expander(f"Texto raw: {title}", expanded=False):
+        st.text_area(
+            f"Texto raw {title}",
+            markdown,
+            height=height,
+            disabled=True,
+            label_visibility="collapsed",
+        )
+
+
+def render_draft_panel(title: str, draft, *, active: bool = False) -> None:
+    """Render one draft comparison panel."""
+
+    with st.container(border=True):
+        if active:
+            st.success(f"{title} activo")
+        else:
+            st.caption(title)
+        if draft is None:
+            st.info("No hay draft anterior para comparar.")
+            return
+        st.caption(draft_metadata_text(draft))
+        st.markdown(draft.response)
+        with st.expander(f"Texto raw: draft_{draft.draft_number:03d}", expanded=False):
+            st.text_area(
+                f"Texto raw draft_{draft.draft_number:03d}",
+                draft.response,
+                height=360,
+                disabled=True,
+                label_visibility="collapsed",
+            )
+        if draft.cleaned_response:
+            st.info(f"Salida limpiada: {draft.cleanup_reason}")
 
 
 def main() -> None:
@@ -110,55 +187,78 @@ def main() -> None:
         st.error(str(exc))
         return
 
-    settings_col_a, settings_col_b, settings_col_c = st.columns([1.4, 1, 1])
+    settings_col_a, settings_col_b, settings_col_c, settings_col_d = st.columns(
+        [1.1, 1.4, 1, 1]
+    )
     with settings_col_a:
-        model = st.text_input("Modelo Ollama", value=DEFAULT_MODEL)
+        model_choice = st.selectbox(
+            "Modelo",
+            MODEL_OPTIONS,
+            index=0,
+            key="scene_editor_model_choice",
+        )
     with settings_col_b:
-        temperature = st.slider("Temperatura", 0.0, 1.2, DEFAULT_TEMPERATURE, 0.05)
+        custom_model = st.text_input(
+            "Modelo custom",
+            value=st.session_state.get("scene_editor_custom_model", DEFAULT_MODEL),
+            key="scene_editor_custom_model",
+            disabled=model_choice != "custom",
+        )
     with settings_col_c:
-        st.metric("Max tokens", DEFAULT_MAX_TOKENS)
+        temperature = st.slider(
+            "Temperatura",
+            0.0,
+            1.2,
+            DEFAULT_TEMPERATURE,
+            0.05,
+            key="scene_editor_temperature",
+        )
+    with settings_col_d:
+        max_tokens = st.number_input(
+            "Max tokens",
+            min_value=256,
+            max_value=32000,
+            value=DEFAULT_MAX_TOKENS,
+            step=256,
+            key="scene_editor_max_tokens",
+        )
         timeout_seconds = st.number_input(
             "Timeout (s)",
             min_value=30,
             max_value=3600,
             value=DEFAULT_TIMEOUT_SECONDS,
             step=30,
+            key="scene_editor_timeout_seconds",
         )
+    model = custom_model if model_choice == "custom" else model_choice
     settings = GenerationSettings(
         model=model.strip() or DEFAULT_MODEL,
         temperature=float(temperature),
-        max_tokens=DEFAULT_MAX_TOKENS,
+        max_tokens=int(max_tokens),
     )
     ollama_client = OllamaClient(timeout_seconds=int(timeout_seconds))
 
     base_col, notes_col, draft_col = st.columns(3)
     with base_col:
         st.subheader("Screenplay base")
-        st.text_area(
-            "Screenplay base",
-            source.screenplay_markdown,
-            height=520,
-            disabled=True,
-            label_visibility="collapsed",
-        )
+        render_markdown_with_raw("screenplay base", source.screenplay_markdown)
     with notes_col:
         st.subheader("Notas editoriales")
-        st.text_area(
-            "Notas editoriales",
+        render_markdown_with_raw(
+            "notas editoriales",
             source.editorial_notes_markdown or "_Sin notas editoriales._",
-            height=520,
-            disabled=True,
-            label_visibility="collapsed",
         )
     with draft_col:
         st.subheader("Draft cinematográfico")
-        selected_draft = select_active_draft(root, selected_session, selected_scene)
+        draft_numbers, selected_draft = select_active_draft(
+            root,
+            selected_session,
+            selected_scene,
+        )
         draft_text = selected_draft.response if selected_draft else ""
         if selected_draft:
-            st.caption(
-                f"Draft activo: {selected_draft.draft_number:03d} | "
-                f"Prompt: {selected_draft.prompt_version}"
-            )
+            st.success(f"Draft activo: {selected_draft.draft_number:03d}")
+            st.caption(draft_metadata_text(selected_draft))
             st.markdown(draft_text)
             with st.expander("Texto raw del draft", expanded=False):
                 st.text_area(
@@ -172,6 +272,63 @@ def main() -> None:
                 st.info(f"Salida limpiada: {selected_draft.cleanup_reason}")
         else:
             st.info("Aun no hay draft para esta escena.")
+
+    previous_draft = previous_draft_for_active(
+        root,
+        selected_session,
+        selected_scene,
+        draft_numbers,
+        selected_draft,
+    )
+
+    st.subheader("Evaluacion rapida")
+    if selected_draft:
+        eval_col_a, eval_col_b, eval_col_c, eval_col_d = st.columns([1, 1, 1, 3])
+        with eval_col_a:
+            if st.button("Mejor", use_container_width=True):
+                save_draft_evaluation(
+                    root,
+                    selected_session,
+                    selected_scene,
+                    selected_draft.draft_number,
+                    "better",
+                )
+                st.rerun()
+        with eval_col_b:
+            if st.button("Igual", use_container_width=True):
+                save_draft_evaluation(
+                    root,
+                    selected_session,
+                    selected_scene,
+                    selected_draft.draft_number,
+                    "same",
+                )
+                st.rerun()
+        with eval_col_c:
+            if st.button("Peor", use_container_width=True):
+                save_draft_evaluation(
+                    root,
+                    selected_session,
+                    selected_scene,
+                    selected_draft.draft_number,
+                    "worse",
+                )
+                st.rerun()
+        with eval_col_d:
+            current_eval = EVALUATION_LABELS.get(
+                selected_draft.user_evaluation,
+                "Sin evaluar",
+            )
+            st.caption(f"Evaluacion actual: {current_eval}")
+    else:
+        st.info("Genera un draft antes de evaluar.")
+
+    st.subheader("Comparacion de drafts")
+    compare_prev_col, compare_active_col = st.columns(2)
+    with compare_prev_col:
+        render_draft_panel("Draft anterior", previous_draft)
+    with compare_active_col:
+        render_draft_panel("Draft actual", selected_draft, active=True)
 
     feedback = st.text_area(
         "Ajuste del director para el siguiente draft",
@@ -219,6 +376,9 @@ def main() -> None:
                             previous_draft=selected_draft.response if selected_draft else "",
                             user_feedback=feedback,
                             settings=settings,
+                            source_draft_number=(
+                                selected_draft.draft_number if selected_draft else None
+                            ),
                             client=ollama_client,
                         )
                         st.success(f"Draft {record.draft_number:03d} refinado.")

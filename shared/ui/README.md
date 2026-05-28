@@ -66,6 +66,29 @@ La app escribe:
 - `<serie>/processing/final_screenplay/<session>/escena_XXX.final.md`
 - `<serie>/processing/final_screenplay/<session>/escena_XXX.final.json`
 
+Flujo editorial:
+
+- El panel superior muestra screenplay base, notas editoriales y draft activo.
+- La seccion de comparacion muestra automaticamente el draft anterior junto al
+  draft actual.
+- Cada panel de draft muestra numero, modelo, temperatura, timestamp y version
+  de prompt.
+- Los expanders permiten revisar el texto raw.
+- Los botones `Mejor`, `Igual` y `Peor` guardan `user_evaluation` en el JSON del
+  draft activo y anaden un evento a `conversation_history.json`.
+
+## Modelos recomendados
+
+`gemma4:latest` es el modelo recomendado para escritura cinematografica y
+screenplay atmosferico. En las pruebas locales sigue mejor las instrucciones de
+salida limpia y evita mejor el reasoning visible.
+
+`qwen3:30b` permanece disponible desde el selector de modelo. Puede ser util en
+tareas de refinamiento, pero se ha observado reasoning residual tipo
+`Okay, the user...` incluso usando `think=false` y `/no_think`. La UI y el
+pipeline limpian preambulos cuando pueden, pero Qwen es menos fiable para
+salida directa.
+
 Privacidad:
 
 - Drafts, conversaciones y finales son outputs privados en `processing/`.

@@ -102,6 +102,7 @@ def refine_draft(
     previous_draft: str,
     user_feedback: str,
     settings: GenerationSettings,
+    source_draft_number: int | None = None,
     client: OllamaClient | None = None,
 ) -> DraftRecord:
     """Generate and persist a refinement using the previous draft as context."""
@@ -113,6 +114,7 @@ def refine_draft(
         settings=settings,
         prompt=prompt,
         user_feedback=user_feedback,
+        source_draft_number=source_draft_number,
         client=client,
     )
 
@@ -124,6 +126,7 @@ def generate_and_save(
     settings: GenerationSettings,
     prompt: str,
     user_feedback: str,
+    source_draft_number: int | None = None,
     client: OllamaClient | None = None,
 ) -> DraftRecord:
     """Call Ollama, build draft metadata, and persist the result."""
@@ -150,6 +153,7 @@ def generate_and_save(
         cleaned_response=cleaned_response,
         cleanup_reason=cleanup_reason,
         prompt_version=PROMPT_VERSION,
+        source_draft_number=source_draft_number,
     )
     save_draft(series_root, source.session_id, record)
     return record

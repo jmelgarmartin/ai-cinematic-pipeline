@@ -40,6 +40,8 @@ class DraftRecord:
     cleaned_response: bool
     cleanup_reason: str
     prompt_version: str
+    source_draft_number: int | None = None
+    user_evaluation: str = ""
 
 
 @dataclass(frozen=True)

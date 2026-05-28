@@ -171,6 +171,18 @@ razonamiento, como algunas variantes de Qwen, pueden devolver reasoning visible
 tipo `Okay, let's...` o `First, I need...`. El editor incluye limpieza defensiva,
 pero el output esperado siempre es una escena final, no analisis ni informe.
 
+### Modelos recomendados
+
+`gemma4:latest` es el modelo recomendado por defecto para reescritura de
+screenplay atmosferico: tiende a seguir mejor el tono cinematografico y produce
+menos trazas de razonamiento visibles.
+
+`qwen3:30b` sigue siendo configurable y puede resultar util para refinamientos
+complejos, pero en pruebas locales ha sido menos fiable ocultando reasoning:
+incluso con `think=false` y `/no_think`, algunas respuestas pueden empezar con
+texto tipo `Okay, the user...`. El scene editor intenta limpiar esos preambulos,
+pero para trabajo editorial fluido se recomienda empezar con Gemma.
+
 La UI local se abre con:
 
 ```powershell
@@ -184,8 +196,10 @@ Flujo completo:
 3. Aplicar notas para crear `processing/annotated_screenplay/<session>/`.
 4. Abrir el scene editor.
 5. Generar un primer draft con Ollama.
-6. Refinar con instrucciones adicionales sin perder el draft anterior.
-7. Guardar una version aceptada como final.
+6. Comparar el draft activo con el anterior.
+7. Marcar rapidamente si el draft es mejor, igual o peor.
+8. Refinar con instrucciones adicionales sin perder trazabilidad.
+9. Guardar una version aceptada como final.
 
 Los drafts se guardan en:
 
@@ -200,9 +214,11 @@ La version final aceptada se guarda en:
 <serie>/processing/final_screenplay/<session>/escena_001.final.json
 ```
 
-Cada draft conserva prompt, respuesta, modelo, temperatura, feedback, hashes de
-origen, timestamp, version de prompt y si hubo limpieza de salida. Estos outputs
-son privados y no se versionan.
+Cada draft conserva prompt, respuesta, modelo, temperatura, feedback, draft de
+origen, evaluacion editorial manual, hashes de origen, timestamp, version de
+prompt y si hubo limpieza de salida. `conversation_history.json` guarda eventos
+legibles de generacion y evaluacion. Estos outputs son privados y no se
+versionan.
 
 ## Entorno en PowerShell
 
