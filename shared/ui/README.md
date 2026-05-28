@@ -160,6 +160,8 @@ La app escribe:
 
 - `<serie>/processing/visual_bible/<session>/visual_bible.json`
 - `<serie>/processing/visual_bible/<session>/visual_bible.md`
+- `<serie>/processing/visual_bible/<session>/visual_bible.locked.json`
+- `<serie>/processing/visual_bible/<session>/review_history.json`
 
 La app permite:
 
@@ -168,8 +170,17 @@ La app permite:
 - Navegar perfiles de personajes.
 - Navegar localizaciones.
 - Revisar fotografia, color, iluminacion, referencias y reglas visuales.
+- Revisar y editar personajes canonicos.
+- Revisar y editar localizaciones canonicas.
+- Bloquear la biblia visual con `Lock Visual Bible`.
+- Ver preview y diff entre la normalizacion inicial y el locked JSON.
 - Ver JSON y Markdown.
 
 Esta fase existe antes de image prompts para fijar consistencia visual. No
 genera imagenes, no genera prompts finales de Stable Diffusion y no produce
 animacion.
+
+`visual_bible.locked.json` es la fuente canonica para futuras fases de prompts
+de imagen. A diferencia de `visual_bible.json`, no incluye prompts completos,
+screenplays completos ni storyboards completos: solo hashes, metadata minima e
+identidad visual revisada.

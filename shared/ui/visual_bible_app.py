@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import difflib
 from pathlib import Path
 
 import streamlit as st
@@ -21,6 +22,19 @@ from shared.scene_editor.config import (  # noqa: E402
 )
 from shared.scene_editor.ollama_client import OllamaClient, OllamaError  # noqa: E402
 from shared.visual_bible.models import VisualBibleSettings  # noqa: E402
+from shared.visual_bible.locked_storage import (  # noqa: E402
+    locked_visual_bible_to_markdown,
+    locked_visual_bible_path,
+    read_locked_visual_bible,
+    read_review_history,
+    save_locked_visual_bible,
+)
+from shared.visual_bible.normalizer import locked_visual_bible_to_payload  # noqa: E402
+from shared.visual_bible.reviewer import (  # noqa: E402
+    build_locked_visual_bible,
+    parse_locked_payload,
+    render_locked_json,
+)
 from shared.visual_bible.storage import (  # noqa: E402
     list_series,
     list_sessions,
@@ -65,6 +79,100 @@ def render_environment_browser(visual_bible: dict[str, object]) -> None:
         item for item in environments if isinstance(item, dict) and item.get("location") == selected
     )
     st.json(environment)
+
+
+def render_locked_review_panel(
+    root: Path,
+    session_id: str,
+    visual_bible: dict[str, object],
+) -> None:
+    """Render editable review controls for the locked visual bible."""
+
+    proposed_locked = build_locked_visual_bible(visual_bible)
+    proposed_payload = locked_visual_bible_to_payload(proposed_locked)
+    existing_payload = read_locked_visual_bible(root, session_id)
+    active_payload = existing_payload or proposed_payload
+    locked_path = locked_visual_bible_path(root, session_id)
+
+    st.subheader("Visual bible review")
+    if existing_payload:
+        st.caption(f"Locked: {locked_path.name}")
+    else:
+        st.caption("Todavia no hay locked visual bible. Se muestra una normalizacion inicial.")
+
+    edit_a, edit_b = st.columns(2)
+    with edit_a:
+        characters_text = st.text_area(
+            "Personajes canonicos",
+            json.dumps(active_payload.get("characters", []), ensure_ascii=False, indent=2),
+            height=420,
+            key=f"locked_characters_{session_id}",
+        )
+    with edit_b:
+        environments_text = st.text_area(
+            "Localizaciones canonicas",
+            json.dumps(active_payload.get("environments", []), ensure_ascii=False, indent=2),
+            height=420,
+            key=f"locked_environments_{session_id}",
+        )
+
+    note = st.text_input(
+        "Nota de revision",
+        value="Manual visual consistency lock",
+        key=f"locked_note_{session_id}",
+    )
+
+    try:
+        edited_payload = dict(active_payload)
+        edited_payload["characters"] = json.loads(characters_text)
+        edited_payload["environments"] = json.loads(environments_text)
+        locked = parse_locked_payload(json.dumps(edited_payload, ensure_ascii=False))
+        locked_json = render_locked_json(locked)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        st.error(f"JSON de revision invalido: {exc}")
+        return
+
+    if locked.validation_warnings:
+        st.warning("Validaciones pendientes: " + "; ".join(locked.validation_warnings))
+    else:
+        st.success("Validaciones OK: sin duplicados ni perfiles visuales vacios.")
+
+    action_a, action_b = st.columns([1, 3])
+    with action_a:
+        if st.button("Lock Visual Bible", type="primary", use_container_width=True):
+            save_locked_visual_bible(root, session_id, locked, note=note)
+            st.success(f"Locked visual bible guardada: {locked_path.name}")
+            st.rerun()
+    with action_b:
+        st.caption(
+            "El locked JSON elimina prompts y fuentes completas; conserva hashes, "
+            "metadata minima e identidad visual canonica."
+        )
+
+    preview_a, preview_b = st.columns(2)
+    with preview_a:
+        st.markdown(locked_visual_bible_to_markdown(locked))
+    with preview_b:
+        st.json(json.loads(locked_json))
+
+    with st.expander("Diff original normalizado vs locked", expanded=False):
+        original = json.dumps(proposed_payload, ensure_ascii=False, indent=2).splitlines()
+        current = locked_json.splitlines()
+        diff = difflib.unified_diff(
+            original,
+            current,
+            fromfile="visual_bible.normalized.json",
+            tofile="visual_bible.locked.json",
+            lineterm="",
+        )
+        st.code("\n".join(diff) or "Sin diferencias.", language="diff")
+
+    history = read_review_history(root, session_id)
+    with st.expander("Review history", expanded=False):
+        if history:
+            st.json(history)
+        else:
+            st.info("Todavia no hay historial de revision.")
 
 
 def main() -> None:
@@ -193,6 +301,7 @@ def main() -> None:
                 [
                     "Personajes",
                     "Localizaciones",
+                    "Review",
                     "Fotografia",
                     "Color",
                     "Iluminacion",
@@ -204,9 +313,11 @@ def main() -> None:
                 render_character_browser(visual_bible_json)
             with tabs[1]:
                 render_environment_browser(visual_bible_json)
+            with tabs[2]:
+                render_locked_review_panel(root, selected_session, visual_bible_json)
             cinematography = visual_bible_json.get("cinematography", {})
             identity = visual_bible_json.get("series_visual_identity", {})
-            with tabs[2]:
+            with tabs[3]:
                 if isinstance(cinematography, dict):
                     st.json(
                         {
@@ -216,13 +327,13 @@ def main() -> None:
                             "texture": cinematography.get("texture", {}),
                         }
                     )
-            with tabs[3]:
-                if isinstance(cinematography, dict):
-                    st.json(cinematography.get("color_grading", {}))
             with tabs[4]:
                 if isinstance(cinematography, dict):
-                    st.json(cinematography.get("lighting", {}))
+                    st.json(cinematography.get("color_grading", {}))
             with tabs[5]:
+                if isinstance(cinematography, dict):
+                    st.json(cinematography.get("lighting", {}))
+            with tabs[6]:
                 if isinstance(identity, dict):
                     st.json(
                         {
@@ -230,7 +341,7 @@ def main() -> None:
                             "visual_keywords": identity.get("visual_keywords", []),
                         }
                     )
-            with tabs[6]:
+            with tabs[7]:
                 if isinstance(identity, dict):
                     st.json(identity.get("visual_rules", []))
 

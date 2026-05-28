@@ -90,3 +90,45 @@ class VisualBibleRecord:
     environments: list[EnvironmentRule]
     cinematography: CinematographyRules
     series_visual_identity: SeriesVisualIdentity
+
+
+@dataclass(frozen=True)
+class LockedCharacterProfile:
+    """Canonical visual identity for one character."""
+
+    character_id: str
+    display_name: str
+    appearance: dict[str, str] = field(default_factory=dict)
+    props: list[str] = field(default_factory=list)
+    behavioral_visuals: list[str] = field(default_factory=list)
+    camera_treatment: dict[str, object] = field(default_factory=dict)
+    source_character_ids: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class LockedEnvironmentProfile:
+    """Canonical visual identity for one reusable environment."""
+
+    environment_id: str
+    display_name: str
+    aliases: list[str] = field(default_factory=list)
+    architecture: str = ""
+    weather: str = ""
+    street_density: str = ""
+    texture: list[str] = field(default_factory=list)
+    lighting: str = ""
+
+
+@dataclass(frozen=True)
+class LockedVisualBible:
+    """Reviewed visual bible used as the official source for image prompts."""
+
+    session_id: str
+    locked_at: str
+    source_hashes: dict[str, str]
+    source_metadata: dict[str, object]
+    characters: list[LockedCharacterProfile]
+    environments: list[LockedEnvironmentProfile]
+    cinematography: CinematographyRules
+    series_visual_identity: SeriesVisualIdentity
+    validation_warnings: list[str] = field(default_factory=list)

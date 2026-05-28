@@ -289,6 +289,21 @@ Salida privada:
 <serie>/processing/visual_bible/<session>/visual_bible.md
 ```
 
+La fase de revision `visual_bible_review` permite consolidar manualmente esa
+biblia antes de pasar a prompts de imagen. Normaliza personajes, props,
+localizaciones y reglas cinematograficas en una fuente canonica compacta:
+
+```text
+<serie>/processing/visual_bible/<session>/visual_bible.locked.json
+<serie>/processing/visual_bible/<session>/review_history.json
+```
+
+El archivo locked no guarda prompts completos, screenplays completos ni
+storyboards completos. Conserva hashes, metadata minima, personajes canonicos,
+localizaciones canonicas y reglas visuales definitivas. Esta fase sirve para
+evitar contradicciones como atributos fisicos perdidos, localizaciones duplicadas
+o identidad visual demasiado ambigua antes de Stable Diffusion, Flux o ComfyUI.
+
 La UI local se abre con:
 
 ```powershell
@@ -302,6 +317,7 @@ screenplay
   -> final_screenplay
   -> storyboard_breakdown
   -> visual_bible
+  -> visual_bible_review
   -> image prompts
   -> images
   -> animation
