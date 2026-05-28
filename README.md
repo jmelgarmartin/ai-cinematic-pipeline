@@ -265,6 +265,52 @@ El JSON de storyboard conserva shots, prompt, modelo, timestamp, hashes y
 version de prompt (`storyboard_v1_structured`). Los outputs siguen siendo datos
 privados de trabajo y no se versionan.
 
+## Visual bible
+
+`visual_bible` fija la identidad visual de la serie antes de generar imagenes.
+Usa el `final_screenplay` y el `storyboard_breakdown` como fuentes para producir
+reglas reutilizables de personajes, localizaciones, fotografia, color, lentes,
+composicion, textura e iluminacion.
+
+Esta fase no genera imagenes, no genera prompts finales de Stable Diffusion y no
+produce animacion. Su objetivo es consistencia visual para futuras generaciones.
+
+Entrada:
+
+```text
+<serie>/processing/final_screenplay/<session>/*.final.md
+<serie>/processing/storyboard_breakdown/<session>/*.storyboard.json
+```
+
+Salida privada:
+
+```text
+<serie>/processing/visual_bible/<session>/visual_bible.json
+<serie>/processing/visual_bible/<session>/visual_bible.md
+```
+
+La UI local se abre con:
+
+```powershell
+uv run streamlit run .\shared\ui\visual_bible_app.py
+```
+
+Flujo previsto:
+
+```text
+screenplay
+  -> final_screenplay
+  -> storyboard_breakdown
+  -> visual_bible
+  -> image prompts
+  -> images
+  -> animation
+```
+
+La visual bible conserva prompt, modelo, timestamp, hashes de screenplay y
+storyboard, fuentes usadas y version de prompt
+(`visual_bible_v1_consistency`). Los outputs son privados y no se versionan.
+
 ## Entorno en PowerShell
 
 Normalmente no hace falta activar el entorno si usas `uv run`. Si quieres activarlo manualmente:

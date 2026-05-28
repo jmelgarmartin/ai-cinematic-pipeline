@@ -139,3 +139,37 @@ La app permite:
 Esta fase no genera imagenes, no genera prompts artisticos finales y no produce
 animacion. El objetivo es continuidad visual, division en beats y planificacion
 de shots para una futura fase de image prompts.
+
+## visual_bible_app.py
+
+Interfaz experimental para generar una biblia visual reutilizable a partir de
+`final_screenplay` y `storyboard_breakdown`.
+
+Arranque:
+
+```powershell
+uv run streamlit run .\shared\ui\visual_bible_app.py
+```
+
+La app lee:
+
+- `<serie>/processing/final_screenplay/<session>/*.final.md`
+- `<serie>/processing/storyboard_breakdown/<session>/*.storyboard.json`
+
+La app escribe:
+
+- `<serie>/processing/visual_bible/<session>/visual_bible.json`
+- `<serie>/processing/visual_bible/<session>/visual_bible.md`
+
+La app permite:
+
+- Seleccionar serie y sesion.
+- Generar o regenerar la visual bible con Ollama.
+- Navegar perfiles de personajes.
+- Navegar localizaciones.
+- Revisar fotografia, color, iluminacion, referencias y reglas visuales.
+- Ver JSON y Markdown.
+
+Esta fase existe antes de image prompts para fijar consistencia visual. No
+genera imagenes, no genera prompts finales de Stable Diffusion y no produce
+animacion.
