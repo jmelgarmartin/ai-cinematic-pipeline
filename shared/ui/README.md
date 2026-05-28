@@ -107,3 +107,35 @@ Limitaciones actuales:
 - No comprueba continuidad entre escenas.
 - La limpieza defensiva recorta preambulos tipo chatbot cuando detecta un
   encabezado valido de escena.
+
+## storyboard_app.py
+
+Interfaz experimental para convertir una escena aceptada de `final_screenplay`
+en un desglose estructurado de storyboard audiovisual.
+
+Arranque:
+
+```powershell
+uv run streamlit run .\shared\ui\storyboard_app.py
+```
+
+La app lee:
+
+- `<serie>/processing/final_screenplay/<session>/escena_XXX.final.md`
+
+La app escribe:
+
+- `<serie>/processing/storyboard_breakdown/<session>/escena_XXX.storyboard.json`
+- `<serie>/processing/storyboard_breakdown/<session>/escena_XXX.storyboard.md`
+
+La app permite:
+
+- Seleccionar serie, sesion y escena final.
+- Generar o regenerar el storyboard con Ollama.
+- Navegar shots.
+- Ver final screenplay, markdown de storyboard y JSON.
+- Revisar metadata de modelo, timestamp y version de prompt.
+
+Esta fase no genera imagenes, no genera prompts artisticos finales y no produce
+animacion. El objetivo es continuidad visual, division en beats y planificacion
+de shots para una futura fase de image prompts.

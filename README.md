@@ -220,6 +220,51 @@ prompt y si hubo limpieza de salida. `conversation_history.json` guarda eventos
 legibles de generacion y evaluacion. Estos outputs son privados y no se
 versionan.
 
+## Storyboard breakdown
+
+`storyboard_breakdown` es la siguiente fase despues de `final_screenplay`.
+Convierte una escena cinematografica final aceptada en una estructura de shots
+para planificacion audiovisual.
+
+Esta fase no genera imagenes, no genera prompts artisticos finales, no usa
+Stable Diffusion y no produce animacion. Solo analiza el screenplay final,
+divide la escena en beats visuales y guarda shots coherentes con continuidad
+espacial y narrativa.
+
+Entrada:
+
+```text
+<serie>/processing/final_screenplay/<session>/escena_001.final.md
+```
+
+Salida privada:
+
+```text
+<serie>/processing/storyboard_breakdown/<session>/escena_001.storyboard.json
+<serie>/processing/storyboard_breakdown/<session>/escena_001.storyboard.md
+```
+
+La UI local se abre con:
+
+```powershell
+uv run streamlit run .\shared\ui\storyboard_app.py
+```
+
+Flujo previsto:
+
+```text
+screenplay
+  -> final_screenplay
+  -> storyboard_breakdown
+  -> image prompts
+  -> images
+  -> animation
+```
+
+El JSON de storyboard conserva shots, prompt, modelo, timestamp, hashes y
+version de prompt (`storyboard_v1_structured`). Los outputs siguen siendo datos
+privados de trabajo y no se versionan.
+
 ## Entorno en PowerShell
 
 Normalmente no hace falta activar el entorno si usas `uv run`. Si quieres activarlo manualmente:
